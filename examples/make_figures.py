@@ -315,24 +315,53 @@ def figure_5_aromaticity():
     h, s = sp.symbols('h s')
     Hab = sp.Symbol('H_ab')
     H_VAL, S_VAL = -1.0, 0.2
-    lambdas = np.linspace(1.0, 0.0, 41)
+    lambdas = np.linspace(1.0, 0.0, 81)
     weights = np.zeros((5, len(lambdas)))
     Es = np.zeros((5, len(lambdas)))
-    E_full = np.zeros(len(lambdas))
+    E_cov = np.zeros(len(lambdas))
     for i, lam in enumerate(lambdas):
         subs = {h: H_VAL, s: S_VAL, Hab: lam * H_VAL}
         Hn = np.array(Hs.subs(subs).tolist(), dtype=float)
         Sn = np.array(Ss.subs(subs).tolist(), dtype=float)
         evals, evecs = eigh(Hn, Sn)
-        E_full[i] = evals[0]
+        E_cov[i] = evals[0]
         c0 = evecs[:, 0]
         weights[:, i] = c0 * (Sn @ c0)
         Es[:, i] = [Hn[j, j] / Sn[j, j] for j in range(5)]
 
-    RE_Kek = np.min(Es[:2], axis=0) - E_full
+    RE_Kek = np.min(Es[:2], axis=0) - E_cov
 
-    fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
+    # --- full 400-det FCI scan via H(lambda) = H0 + lambda * dH --------------
+    # The full 6-orbital Sz=0 basis built with H_ab kept symbolic; H is linear
+    # in H_ab so two numerical builds (at H_ab=0 and H_ab=h) span the scan.
+    CACHE_FULL = '/tmp/benzene_full_aromaticity_HS.pkl'
+    if os.path.exists(CACHE_FULL):
+        with open(CACHE_FULL, 'rb') as f:
+            H_sym, S_sym = pickle.load(f)
+    else:
+        m_full = Molecule(
+            zero_ii=True,
+            subst={'s': ('S_ab','S_bc','S_cd','S_de','S_ef','S_af'),
+                   'h': ('H_bc','H_cd','H_de','H_ef','H_af')},
+            interacting_orbs=['ab','bc','cd','de','ef','af'])
+        m_full.generate_basis(3, 3, 6)
+        H_sym = m_full.build_matrix(m_full.basis, op='H')
+        S_sym = m_full.build_matrix(m_full.basis, op='S')
+        with open(CACHE_FULL, 'wb') as f:
+            pickle.dump((H_sym, S_sym), f)
+    H0 = np.array(H_sym.subs({h: H_VAL, s: S_VAL, Hab: 0.0}).tolist(), dtype=float)
+    H1 = np.array(H_sym.subs({h: H_VAL, s: S_VAL, Hab: H_VAL}).tolist(), dtype=float)
+    S_f = np.array(S_sym.subs({s: S_VAL}).tolist(), dtype=float)
+    dH_full = H1 - H0
+    E_fci = np.zeros(len(lambdas))
+    rho_ab = np.zeros(len(lambdas))
+    for i, lam in enumerate(lambdas):
+        evals, evecs = eigh(H0 + lam * dH_full, S_f, subset_by_index=[0, 0])
+        E_fci[i] = evals[0]
+        c0 = evecs[:, 0]
+        rho_ab[i] = -(c0 @ dH_full @ c0)   # Hellmann-Feynman: rho = -dE/dlam
 
+    fig, ax = plt.subplots(1, 4, figsize=(16, 3.6))
     colors = ['C0', 'C1', 'C2', 'C3', 'C4']
     ls = ['-', '-', '--', '--', '--']
     for j in range(5):
@@ -353,14 +382,33 @@ def figure_5_aromaticity():
     ax[1].annotate('broken bond', xy=(0.0, RE_Kek[-1]), xytext=(0.2, 0.22),
                    fontsize=10, ha='center')
 
-    ax[2].plot(lambdas, E_full, 'k-', lw=1.8, label='5-Rumer covalent')
+    ax[2].plot(lambdas, E_cov, 'k-', lw=1.8)
     ax[2].set_xlabel(r'$\lambda$')
-    ax[2].set_ylabel(r'$E  /  |\beta|$')
-    ax[2].set_title(r'(c)  covalent ground-state energy')
+    ax[2].set_ylabel(r'$E_{\rm cov5}  /  |\beta|$')
+    ax[2].set_title(r'(c)  covalent 5-structure energy')
     ax[2].grid(alpha=0.3); ax[2].invert_xaxis()
+    imax = int(np.argmax(E_cov))
+    ax[2].plot(lambdas[imax], E_cov[imax], 'ro', ms=6)
+    ax[2].annotate(fr'max @ $\lambda={lambdas[imax]:.2f}$',
+                   xy=(lambdas[imax], E_cov[imax]),
+                   xytext=(lambdas[imax] - 0.15, E_cov[imax] + 0.015),
+                   fontsize=9, arrowprops=dict(arrowstyle='->', lw=0.8))
+
+    ax[3].plot(lambdas, E_fci, 'k-', lw=1.8, label=r'$E_{\mathrm{FCI}}$')
+    ax[3].set_xlabel(r'$\lambda$')
+    ax[3].set_ylabel(r'$E_{\mathrm{FCI}}  /  |\beta|$')
+    ax[3].set_title(r'(d)  full 400-det CI energy')
+    ax[3].grid(alpha=0.3); ax[3].invert_xaxis()
+    ax3b = ax[3].twinx()
+    ax3b.plot(lambdas, rho_ab, 'C3--', lw=1.5, label=r'$\rho_{ab}=-dE/d\lambda$')
+    ax3b.set_ylabel(r'$\rho_{ab}$  ($\pi$ bond order on $a$–$b$)', color='C3')
+    ax3b.tick_params(axis='y', labelcolor='C3')
+    ax[3].legend(loc='upper right', fontsize=9, frameon=False)
+    ax3b.legend(loc='lower left', fontsize=9, frameon=False)
 
     plt.tight_layout()
     plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.png'), dpi=130)
     plt.close()
     print('  fig5_aromaticity.pdf')
 
@@ -400,21 +448,21 @@ def figure_6_disphenoid():
     h_l_vals = [-0.15, -0.3, -0.6]
     colors = ['C0', 'C2', 'C3']
 
-    fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
+    fig, ax = plt.subplots(2, 2, figsize=(10, 7))
 
     # Panel (a):  E_elec(eta) for cation at three h_l values, with closed form
     for hl_v, col in zip(h_l_vals, colors):
         E_num = np.array([Egs(H3_0, H3_c, -1 - e / 2, -1 + e / 2, hl_v, 0) for e in etas])
-        ax[0].plot(etas, E_num, color=col, lw=1.8, label=rf'$h_l = {hl_v}$')
+        ax[0, 0].plot(etas, E_num, color=col, lw=1.8, label=rf'$h_l = {hl_v}$')
         # Overlay closed form 3 h_s - sqrt(eta^2/4 + 4 h_l^2),  h_s = -1
         E_cf = -3 - np.sqrt(etas**2 / 4 + 4 * hl_v**2)
-        ax[0].plot(etas, E_cf, color=col, ls=':', lw=1)
-    ax[0].set_xlabel(r'$\eta = h_{s,1} - h_{s,2}$')
-    ax[0].set_ylabel(r'$E_{\mathrm{elec}}(\eta) / |h_s|$')
-    ax[0].set_title(r'(a)  cation $E_{\mathrm{elec}}(\eta)$')
-    ax[0].legend(fontsize=9, loc='lower center'); ax[0].grid(alpha=0.3)
-    ax[0].text(0.6, -3.05, 'dotted: closed form', fontsize=9,
-               style='italic', color='0.3')
+        ax[0, 0].plot(etas, E_cf, color=col, ls=':', lw=1)
+    ax[0, 0].set_xlabel(r'$\eta = h_{s,1} - h_{s,2}$')
+    ax[0, 0].set_ylabel(r'$E_{\mathrm{elec}}(\eta) / |h_s|$')
+    ax[0, 0].set_title(r'(a)  cation $E_{\mathrm{elec}}(\eta)$')
+    ax[0, 0].legend(fontsize=9, loc='lower center'); ax[0, 0].grid(alpha=0.3)
+    ax[0, 0].text(0.6, -3.05, 'dotted: closed form', fontsize=9,
+                  style='italic', color='0.3')
 
     # Panel (b):  E_tot(eta) = E_elec(eta) + (1/2) k eta^2
     #             at h_l = -0.3 (k_crit = 1/(8*0.3) ~ 0.417), for several k values
@@ -428,15 +476,15 @@ def figure_6_disphenoid():
         label = f'$k = {k:.2f}$'
         if abs(k - k_crit) < 1e-6:
             label = rf'$k = k_{{\mathrm{{crit}}}} = 1/(8|h_l|) = {k_crit:.3f}$'
-            ax[1].plot(etas, Etot, 'k', lw=1.6, ls=ls, label=label)
+            ax[0, 1].plot(etas, Etot, 'k', lw=1.6, ls=ls, label=label)
         else:
-            ax[1].plot(etas, Etot, lw=1.4, ls=ls, label=label)
-    ax[1].axhline(0, color='0.6', lw=0.6)
-    ax[1].set_xlabel(r'$\eta = h_{s,1} - h_{s,2}$')
-    ax[1].set_ylabel(r'$E_{\mathrm{tot}}(\eta) - E_{\mathrm{tot}}(0)$')
-    ax[1].set_title(rf'(b)  cation  $E_{{\mathrm{{tot}}}}$ at $h_l = {hl_v}$')
-    ax[1].legend(fontsize=9); ax[1].grid(alpha=0.3)
-    ax[1].set_ylim(-0.1, 0.15)
+            ax[0, 1].plot(etas, Etot, lw=1.4, ls=ls, label=label)
+    ax[0, 1].axhline(0, color='0.6', lw=0.6)
+    ax[0, 1].set_xlabel(r'$\eta = h_{s,1} - h_{s,2}$')
+    ax[0, 1].set_ylabel(r'$E_{\mathrm{tot}}(\eta) - E_{\mathrm{tot}}(0)$')
+    ax[0, 1].set_title(rf'(b)  cation  $E_{{\mathrm{{tot}}}}$ at $h_l = {hl_v}$')
+    ax[0, 1].legend(fontsize=9); ax[0, 1].grid(alpha=0.3)
+    ax[0, 1].set_ylim(-0.1, 0.15)
 
     # Panel (c):  charge-induced reorganisation  --  4e vs 3e curvature
     eps = 0.01
@@ -450,24 +498,68 @@ def figure_6_disphenoid():
         E4_p = Egs(H4_0, H4_c, -1 - eps / 2, -1 + eps / 2, hl_v, 0)
         curv4.append(2 * (E4_p - E4_0) / eps**2)
     curv3 = np.array(curv3); curv4 = np.array(curv4)
-    ax[2].plot(np.abs(h_l_scan), curv4, 'o-', color='C0', lw=1.5, ms=4,
-               label='4e (neutral)')
-    ax[2].plot(np.abs(h_l_scan), curv3, 's-', color='C3', lw=1.5, ms=4,
-               label='3e (cation)')
+    ax[1, 0].plot(np.abs(h_l_scan), curv4, 'o-', color='C0', lw=1.5, ms=4,
+                  label='4e (neutral)')
+    ax[1, 0].plot(np.abs(h_l_scan), curv3, 's-', color='C3', lw=1.5, ms=4,
+                  label='3e (cation)')
     # closed-form prediction
-    ax[2].plot(np.abs(h_l_scan), -1 / (8 * np.abs(h_l_scan)), ':', color='C3',
-               lw=1.2, label=r'$-1/(8|h_l|)$  (Eq. 22)')
-    ax[2].axhline(0, color='0.6', lw=0.6)
-    ax[2].set_xlabel(r'$|h_l| / |h_s|$')
-    ax[2].set_ylabel(r'$\partial^2 E_{\mathrm{elec}} / \partial \eta^2$ at $\eta=0$')
-    ax[2].set_title('(c)  charge-induced pseudo-JT')
-    ax[2].legend(fontsize=9); ax[2].grid(alpha=0.3)
-    ax[2].set_ylim(-6, 0.5)
+    ax[1, 0].plot(np.abs(h_l_scan), -1 / (8 * np.abs(h_l_scan)), ':', color='C3',
+                  lw=1.2, label=r'$-1/(8|h_l|)$  (Eq. 22)')
+    ax[1, 0].axhline(0, color='0.6', lw=0.6)
+    ax[1, 0].set_xlabel(r'$|h_l| / |h_s|$')
+    ax[1, 0].set_ylabel(r'$\partial^2 E_{\mathrm{elec}} / \partial \eta^2$ at $\eta=0$')
+    ax[1, 0].set_title('(c)  charge-induced pseudo-JT')
+    ax[1, 0].legend(fontsize=9); ax[1, 0].grid(alpha=0.3)
+    ax[1, 0].set_ylim(-6, 0.5)
+
+    # Panel (d):  static-MO (frozen psi_4) vs relaxed-MO, + SOMO hole density
+    #   Demonstrates that the pseudo-JT curvature is entirely due to the
+    #   psi_1 <-> psi_4 mixing under eta.  Freezing the MOs at eta=0 gives a
+    #   flat E(eta) and a 50/50 hole distribution for all eta (Class III at
+    #   every geometry), while relaxing the MOs produces both the energy
+    #   lowering and the progressive hole localisation onto the weaker H-H pair.
+    hs_base = -1.0
+    hl_v = -0.3
+    etas_d = np.linspace(-1.0, 1.0, 201)
+    E_stat_const = 3 * hs_base + 2 * hl_v  # 2*eps_1(0) + eps_4(0), eta-independent
+    E_relax_d = np.empty_like(etas_d)
+    hole_ab = np.empty_like(etas_d)  # hole density on pair (a,b) in the SOMO
+    for j, e in enumerate(etas_d):
+        # eta = h_{s,1} - h_{s,2}: e>0 makes |h_s1| smaller -> weaker a-b -> hole on (a,b)
+        hs1 = hs_base + e / 2
+        hs2 = hs_base - e / 2
+        H4_1e = np.array([[0, hs1, hl_v, hl_v],
+                          [hs1, 0, hl_v, hl_v],
+                          [hl_v, hl_v, 0, hs2],
+                          [hl_v, hl_v, hs2, 0]])
+        w, V = np.linalg.eigh(H4_1e)
+        E_relax_d[j] = 2 * w[0] + w[1]     # doubly occupy lowest, singly occupy next
+        somo = V[:, 1]                      # SOMO = 2nd lowest MO
+        hole_ab[j] = somo[0]**2 + somo[1]**2
+
+    ax_d = ax[1, 1]
+    ax_dr = ax_d.twinx()
+    ln1, = ax_d.plot(etas_d, E_relax_d, 'C0-', lw=1.8,
+                     label=r'relaxed MO ($\psi_4 \to \psi_4\'(\eta)$)')
+    ln2, = ax_d.plot(etas_d, np.full_like(etas_d, E_stat_const), 'C3--', lw=1.4,
+                     label=r'frozen $\psi_4$ (Aufbau at $\eta=0$)')
+    ln3, = ax_dr.plot(etas_d, hole_ab, color='C2', ls=':', lw=2.0,
+                      label='hole on pair $(a,b)$')
+    ax_dr.axhline(0.5, color='0.7', lw=0.6, ls=':')
+    ax_dr.set_ylim(0, 1)
+    ax_d.set_xlabel(r'$\eta = h_{s,1} - h_{s,2}$')
+    ax_d.set_ylabel(r'$E_{\mathrm{elec}}(\eta) / |h_s|$', color='0.2')
+    ax_dr.set_ylabel(r'hole density on $(a,b)$', color='C2')
+    ax_dr.tick_params(axis='y', labelcolor='C2')
+    ax_d.set_title(rf'(d)  static vs relaxed MO at $h_l = {hl_v}$')
+    ax_d.legend(handles=[ln1, ln2, ln3], fontsize=8, loc='lower center')
+    ax_d.grid(alpha=0.3)
 
     plt.tight_layout()
     plt.savefig(os.path.join(OUTDIR, 'fig6_disphenoid.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig6_disphenoid.png'), dpi=150)
     plt.close()
-    print('  fig6_disphenoid.pdf')
+    print('  fig6_disphenoid.pdf / .png')
 
 
 # =======================================================================
