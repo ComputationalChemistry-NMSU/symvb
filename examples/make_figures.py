@@ -25,7 +25,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from vbt3 import Molecule, SlaterDet, FixedPsi, symmetry
 from vbt3.fixed_psi import generate_dets
 
-OUTDIR = sys.argv[1] if len(sys.argv) > 1 else 'figures'
+OUTDIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', 'vbt-3', 'figures')
 os.makedirs(OUTDIR, exist_ok=True)
 plt.rcParams.update({'font.size': 11, 'figure.dpi': 150})
 
