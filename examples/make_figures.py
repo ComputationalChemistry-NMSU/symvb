@@ -10,7 +10,7 @@ Figure 4 is skipped with a diagnostic message.
 Run:
     python3 examples/make_figures.py [out_dir]
 
-Produces fig1_h2.pdf ... fig5_aromaticity.pdf in out_dir (default
+Produces fig3_h2.pdf ... fig7_aromaticity.pdf in out_dir (default
 ./figures).
 """
 import os
@@ -75,9 +75,9 @@ def figure_1_h2():
     ax[1].set_ylim(-0.05, 1.05)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig1_h2.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig3_h2.pdf'))
     plt.close()
-    print('  fig1_h2.pdf')
+    print('  fig3_h2.pdf')
 
 
 # =======================================================================
@@ -171,9 +171,9 @@ def figure_2_allyl():
     ax[1].set_ylim(-3.5, 2)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig2_allyl.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig4_allyl.pdf'))
     plt.close()
-    print('  fig2_allyl.pdf')
+    print('  fig4_allyl.pdf')
 
 
 # =======================================================================
@@ -209,9 +209,9 @@ def figure_3_degeneracy():
     ax.set_ylim(-5, max(degs) + 8)
     ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig3_degeneracy.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig1_degeneracy.pdf'))
     plt.close()
-    print('  fig3_degeneracy.pdf')
+    print('  fig1_degeneracy.pdf')
 
 
 # =======================================================================
@@ -288,9 +288,9 @@ def figure_4_pade():
     ax[1].legend(fontsize=9); ax[1].grid(alpha=0.3, which='both')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig4_pade.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig2_pade.pdf'))
     plt.close()
-    print('  fig4_pade.pdf')
+    print('  fig2_pade.pdf')
 
 
 # =======================================================================
@@ -408,10 +408,10 @@ def figure_5_aromaticity():
     ax3b.legend(loc='lower left', fontsize=9, frameon=False)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.pdf'))
-    plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.png'), dpi=130)
+    plt.savefig(os.path.join(OUTDIR, 'fig7_aromaticity.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig7_aromaticity.png'), dpi=130)
     plt.close()
-    print('  fig5_aromaticity.pdf')
+    print('  fig7_aromaticity.pdf')
 
 
 # =======================================================================
@@ -564,8 +564,528 @@ def figure_6_disphenoid():
 
 
 # =======================================================================
+# Scheme 1 - vbt3 package architecture and data flow (Methods §3.1)
+# =======================================================================
+def scheme_1_pipeline():
+    from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+
+    fig, ax = plt.subplots(figsize=(10.0, 6.4))
+    ax.set_xlim(-4, 100)
+    ax.set_ylim(0, 100)
+    ax.set_axis_off()
+
+    # Color palette
+    c_input = '#eef2f7'
+    c_core  = '#d8e3f0'
+    c_sym   = '#e8f0d8'
+    c_out   = '#f5e5d8'
+    c_edge  = '#3b4a5a'
+    c_label = '#6a7380'
+
+    def box(x, y, w, h, text, fc, fontsize=10, weight='normal', zorder=2):
+        patch = FancyBboxPatch((x, y), w, h,
+                               boxstyle='round,pad=0.4,rounding_size=1.2',
+                               linewidth=1.0, edgecolor=c_edge,
+                               facecolor=fc, zorder=zorder)
+        ax.add_patch(patch)
+        ax.text(x + w / 2, y + h / 2, text, ha='center', va='center',
+                fontsize=fontsize, fontweight=weight, zorder=zorder + 1)
+
+    def arrow(x1, y1, x2, y2, style='-|>', lw=1.1, zorder=1):
+        a = FancyArrowPatch((x1, y1), (x2, y2),
+                            arrowstyle=style, lw=lw,
+                            color=c_edge, mutation_scale=11, zorder=zorder)
+        ax.add_patch(a)
+
+    def layer_label(y, text):
+        ax.text(15, y, text, ha='right', va='center',
+                fontsize=9, color=c_label, style='italic')
+
+    # Row y-coordinates (top to bottom)
+    y5, y4, y3, y2, y1 = 88, 71, 50, 29, 10
+    row_h = 10
+
+    # --- Row 5: user inputs ---
+    layer_label(y5 + row_h / 2, 'user input')
+    box(20, y5, 36, row_h,
+        "integral rules\n"
+        r"$\mathtt{Molecule(subst,\ subst\_2e,}$" + "\n"
+        r"$\mathtt{interacting\_orbs,\ max\_2e\_centers)}$",
+        c_input, fontsize=8.5)
+    box(62, y5, 26, row_h,
+        "electron / orbital counts\n"
+        r"$(n_\alpha,\ n_\beta,\ n_{ao})$",
+        c_input, fontsize=9)
+
+    # --- Row 4: slaterdet / fixed_psi ---
+    layer_label(y4 + row_h / 2, 'vbt3.slaterdet /\nvbt3.fixed_psi')
+    box(20, y4, 68, row_h,
+        r"$\mathtt{generate\_dets(n_\alpha,\ n_\beta,\ n_{ao})}$   $\longrightarrow$   "
+        r"$\mathtt{FixedPsi}$  basis of $N_D$ determinants",
+        c_core, fontsize=10, weight='bold')
+
+    # --- Row 3: molecule (matrix assembly) ---
+    layer_label(y3 + row_h / 2, 'vbt3.molecule')
+    box(20, y3, 30, row_h,
+        r"$\mathtt{build\_matrix(P,\,op)}$" + "\n"
+        "1e fast path:  Eq. (5)",
+        c_core, fontsize=9)
+    box(58, y3, 30, row_h,
+        r"$\mathtt{o2\_matrix(P)}$" + "\n"
+        u"2e Löwdin cofactors:  Eq. (3a)",
+        c_core, fontsize=9)
+
+    # --- Row 2: symmetry / spin projections ---
+    layer_label(y2 + row_h / 2, 'vbt3.symmetry /\nvbt3.spin')
+    box(19, y2, 22, row_h,
+        r"$\mathtt{totally\_symmetric}$" + "\n"
+        r"$D_n$ / $A_{1g}$  projection",
+        c_sym, fontsize=9)
+    box(43, y2, 22, row_h,
+        r"$\mathtt{s\_squared\_matrix}$" + "\n"
+        r"total-spin  $S(S{+}1)$",
+        c_sym, fontsize=9)
+    box(67, y2, 22, row_h,
+        r"$\mathtt{eta\_squared\_matrix}$" + "\n"
+        r"pseudospin  $\eta(\eta{+}1)$",
+        c_sym, fontsize=9)
+
+    # --- Row 1: substitute / solve ---
+    layer_label(y1 + row_h / 2, 'substitute & solve')
+    box(20, y1, 68, row_h,
+        r"SymPy $\to$ closed-form $E(h,s,U,J,K,\ldots)$   or   "
+        r"NumPy $\to$ numerical scan",
+        c_out, fontsize=10, weight='bold')
+
+    # --- Arrows between rows ---
+    # row5 -> row4
+    arrow(38, y5, 38, y4 + row_h)
+    arrow(75, y5, 75, y4 + row_h)
+    # row4 -> row3 (split into 1e / 2e)
+    arrow(42, y4, 35, y3 + row_h)
+    arrow(65, y4, 73, y3 + row_h)
+    # row3 -> row2 (combine 1e+2e symbolic (H,S) into the symmetry layer)
+    # Intermediate "symbolic (H, S, H^{2e})" label floating between rows 3 and 2
+    ax.text(54, (y3 + y2 + row_h) / 2 - 0.5,
+            r"symbolic   $H^{1e},\ S,\ H^{2e} \in \mathrm{SymPy}$",
+            ha='center', va='center', fontsize=10,
+            color=c_edge, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.35',
+                      facecolor='white', edgecolor=c_edge, linewidth=0.8))
+    arrow(35, y3, 30, y2 + row_h)
+    arrow(54, y3, 54, y2 + row_h)
+    arrow(73, y3, 78, y2 + row_h)
+    # row2 -> row1
+    arrow(30, y2, 40, y1 + row_h)
+    arrow(54, y2, 54, y1 + row_h)
+    arrow(78, y2, 68, y1 + row_h)
+
+    ax.set_title('Scheme 1.  vbt3 package architecture and data flow',
+                 fontsize=12, loc='left', pad=8)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTDIR, 'scheme1_pipeline.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'scheme1_pipeline.png'), dpi=150)
+    plt.close()
+    print('  scheme1_pipeline.pdf / .png')
+
+
+# =======================================================================
+# Scheme 2 - systems studied (§1 preamble, orientation)
+# =======================================================================
+def _atom(ax, x, y, label, r=0.30, fs=9, fill='white'):
+    from matplotlib.patches import Circle
+    ax.add_patch(Circle((x, y), r, facecolor=fill, edgecolor='#2a3644',
+                        linewidth=1.0, zorder=3))
+    ax.text(x, y, label, ha='center', va='center',
+            fontsize=fs, zorder=4)
+
+
+def _bond(ax, x1, y1, x2, y2, order=1, dashed=False,
+          color='#2a3644', r=0.30, lw=1.2, gap=0.14):
+    """Draw a bond between two atom centres, starting/ending just outside
+    the atom circles (radius r)."""
+    import numpy as np
+    dx, dy = x2 - x1, y2 - y1
+    L = np.hypot(dx, dy)
+    ux, uy = dx / L, dy / L
+    # start/end offset
+    xs, ys = x1 + r * ux, y1 + r * uy
+    xe, ye = x2 - r * ux, y2 - r * uy
+    ls = (0, (3, 2)) if dashed else '-'
+    if order == 1:
+        ax.plot([xs, xe], [ys, ye], color=color, lw=lw,
+                linestyle=ls, zorder=2, solid_capstyle='round')
+    elif order == 2:
+        # perpendicular offset for double bond
+        px, py = -uy * gap, ux * gap
+        ax.plot([xs + px, xe + px], [ys + py, ye + py],
+                color=color, lw=lw, linestyle=ls, zorder=2,
+                solid_capstyle='round')
+        ax.plot([xs - px, xe - px], [ys - py, ye - py],
+                color=color, lw=lw, linestyle=ls, zorder=2,
+                solid_capstyle='round')
+
+
+def _panel_frame(ax, x0, y0, w, h, title):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((x0, y0), w, h,
+                 boxstyle='round,pad=0.4,rounding_size=0.6',
+                 linewidth=0.8, edgecolor='#9aa6b3',
+                 facecolor='#fafbfc', zorder=0))
+    ax.text(x0 + 0.5, y0 + h - 0.6, title,
+            ha='left', va='top', fontsize=10, fontweight='bold',
+            color='#2a3644', zorder=1)
+
+
+def scheme_2_systems():
+    """Schematic overview of every system treated in §4."""
+    import numpy as np
+
+    fig, ax = plt.subplots(figsize=(10.0, 6.8))
+    ax.set_xlim(0, 36)
+    ax.set_ylim(0, 24)
+    ax.set_aspect('equal')
+    ax.set_axis_off()
+
+    # ---- (a) H2 dimer -----------------------------------------------------
+    _panel_frame(ax, 0.5, 16.5, 10, 7, '(a) H₂  (§4.6.1)')
+    _atom(ax, 3.2, 19.2, 'a')
+    _atom(ax, 7.8, 19.2, 'b')
+    _bond(ax, 3.2, 19.2, 7.8, 19.2, order=1)
+    ax.text(5.5, 20.8, r'$h,\ s,\ U,\ J,\ K$',
+            ha='center', fontsize=9, color='#4a5668')
+    ax.text(5.5, 17.8, '2 orbitals,  2 electrons',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- (b) Allyl (3c4e) -------------------------------------------------
+    _panel_frame(ax, 11.5, 16.5, 11, 7, '(b) Allyl anion (3c4e)  (§4.6.2)')
+    _atom(ax, 14.0, 19.2, 'a')
+    _atom(ax, 17.0, 19.2, 'b')
+    _atom(ax, 20.0, 19.2, 'c')
+    _bond(ax, 14.0, 19.2, 17.0, 19.2, order=1)
+    _bond(ax, 17.0, 19.2, 20.0, 19.2, order=1)
+    ax.text(17.0, 20.9, r'$\sigma$-symmetry: $a \leftrightarrow c$',
+            ha='center', fontsize=9, color='#4a5668')
+    ax.text(17.0, 17.8, '3 orbitals,  4 electrons  (anion)',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- (c) Benzene — Kekulé + Dewar ------------------------------------
+    _panel_frame(ax, 23.5, 16.5, 12, 7, '(c) Benzene  (§4.1–4.5, 4.7)')
+    # hexagon centres — compact ring
+    cx, cy, R = 29.5, 19.9, 1.6
+    hex_xy = []
+    labels = list('abcdef')
+    for k in range(6):
+        theta = np.pi / 2 - k * np.pi / 3          # start from top, clockwise
+        hex_xy.append((cx + R * np.cos(theta), cy + R * np.sin(theta)))
+    for (x, y), lbl in zip(hex_xy, labels):
+        _atom(ax, x, y, lbl, r=0.22, fs=8)
+    # Kekulé bond pattern: alternating double/single (a-b double, b-c single, ...)
+    for k in range(6):
+        x1, y1 = hex_xy[k]
+        x2, y2 = hex_xy[(k + 1) % 6]
+        _bond(ax, x1, y1, x2, y2,
+              order=2 if k % 2 == 0 else 1,
+              r=0.22, lw=1.0, gap=0.09)
+    ax.text(29.5, 17.2, '6 orbitals,  6 electrons  (400 dets)',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- (d) (H2)2+ disphenoid -------------------------------------------
+    _panel_frame(ax, 0.5, 9.0, 10, 7, r'(d) $(\mathrm{H_2})_2^+$  (§4.6.3)')
+    # disphenoid: two H2 pairs with diagonal coupling
+    ax2_cx, ax2_cy = 5.5, 12.6
+    _atom(ax, ax2_cx - 2.5, ax2_cy + 1.0, 'a', r=0.28)
+    _atom(ax, ax2_cx - 2.5, ax2_cy - 1.0, 'b', r=0.28)
+    _atom(ax, ax2_cx + 2.5, ax2_cy + 1.0, 'c', r=0.28)
+    _atom(ax, ax2_cx + 2.5, ax2_cy - 1.0, 'd', r=0.28)
+    # intra-pair strong bonds
+    _bond(ax, ax2_cx - 2.5, ax2_cy + 1.0,
+          ax2_cx - 2.5, ax2_cy - 1.0, r=0.28, lw=1.6)
+    _bond(ax, ax2_cx + 2.5, ax2_cy + 1.0,
+          ax2_cx + 2.5, ax2_cy - 1.0, r=0.28, lw=1.6)
+    # inter-pair weak coupling (dashed)
+    _bond(ax, ax2_cx - 2.5, ax2_cy + 1.0,
+          ax2_cx + 2.5, ax2_cy + 1.0,
+          r=0.28, dashed=True, lw=0.9, color='#7a8492')
+    _bond(ax, ax2_cx - 2.5, ax2_cy - 1.0,
+          ax2_cx + 2.5, ax2_cy - 1.0,
+          r=0.28, dashed=True, lw=0.9, color='#7a8492')
+    ax.text(ax2_cx, ax2_cy - 1.8, r'intra: $h_s$,   inter: $h_l \ll h_s$',
+            ha='center', fontsize=9, color='#4a5668')
+    ax.text(ax2_cx, ax2_cy - 2.8,
+            '4 orbitals,  3 electrons  (Robin–Day)',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- (e) (H2)n+ chain ------------------------------------------------
+    _panel_frame(ax, 11.5, 9.0, 11, 7, r'(e) $(\mathrm{H_2})_n^+$ chain  (§4.6.4–5)')
+    # Draw 4 vertical H2 pairs along a horizontal line
+    pair_x = [13.5, 16.0, 18.5, 21.0]
+    pair_y_top = 13.2
+    pair_y_bot = 11.6
+    letters = ['a/b', 'c/d', 'e/f', 'g/h']
+    for px, lab in zip(pair_x, letters):
+        _atom(ax, px, pair_y_top, '', r=0.22, fs=8)
+        _atom(ax, px, pair_y_bot, '', r=0.22, fs=8)
+        _bond(ax, px, pair_y_top, px, pair_y_bot, r=0.22, lw=1.4)
+        ax.text(px, pair_y_bot - 0.9, lab,
+                ha='center', fontsize=8, color='#6a7380')
+    # inter-pair dashed couplings
+    for i in range(3):
+        _bond(ax, pair_x[i], pair_y_top, pair_x[i + 1], pair_y_top,
+              r=0.22, dashed=True, lw=0.8, color='#7a8492')
+        _bond(ax, pair_x[i], pair_y_bot, pair_x[i + 1], pair_y_bot,
+              r=0.22, dashed=True, lw=0.8, color='#7a8492')
+    ax.text(17.25, 14.2, r'$n-1$ CT coordinates,  Peierls cascade',
+            ha='center', fontsize=9, color='#4a5668')
+    ax.text(17.25, 10.2,
+            r'$2n$ orbitals,  $2n-1$ electrons  ($n=2,3,4$)',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- (f) benzene + O3 cycloaddition ----------------------------------
+    _panel_frame(ax, 23.5, 9.0, 12, 7,
+                 r'(f) Benzene + $\mathrm{O_3}$ [3+2]  (§4.7)')
+    # Same hexagon as (c), but with O3 hovering above the a-b edge
+    cx, cy, R = 28.5, 11.6, 1.3
+    hex_xy = []
+    for k in range(6):
+        theta = np.pi / 2 - k * np.pi / 3
+        hex_xy.append((cx + R * np.cos(theta), cy + R * np.sin(theta)))
+    for (x, y), lbl in zip(hex_xy, labels):
+        _atom(ax, x, y, lbl, r=0.18, fs=7)
+    for k in range(6):
+        x1, y1 = hex_xy[k]
+        x2, y2 = hex_xy[(k + 1) % 6]
+        lam_bond_order = 1 if (k == 0) else (2 if k % 2 == 0 else 1)
+        dashed_here = (k == 0)                       # a-b edge is the attacked one
+        _bond(ax, x1, y1, x2, y2,
+              order=lam_bond_order,
+              r=0.18, lw=0.9, gap=0.08, dashed=dashed_here,
+              color='#7a2828' if dashed_here else '#2a3644')
+    # Ozone triangle above
+    o_cx, o_cy = 33.0, 12.4
+    _atom(ax, o_cx - 0.55, o_cy + 0.35, 'O', r=0.22, fs=7,
+          fill='#ffe6c2')
+    _atom(ax, o_cx + 0.55, o_cy + 0.35, 'O', r=0.22, fs=7,
+          fill='#ffe6c2')
+    _atom(ax, o_cx, o_cy - 0.65, 'O', r=0.22, fs=7,
+          fill='#ffe6c2')
+    _bond(ax, o_cx - 0.55, o_cy + 0.35, o_cx + 0.55, o_cy + 0.35,
+          r=0.22, lw=0.9)
+    _bond(ax, o_cx - 0.55, o_cy + 0.35, o_cx, o_cy - 0.65,
+          r=0.22, lw=0.9)
+    _bond(ax, o_cx + 0.55, o_cy + 0.35, o_cx, o_cy - 0.65,
+          r=0.22, lw=0.9)
+    # reaction arrow
+    from matplotlib.patches import FancyArrowPatch
+    ax.add_patch(FancyArrowPatch(
+        (hex_xy[0][0] + 0.2, hex_xy[0][1] + 0.2),
+        (o_cx - 0.8, o_cy - 0.5),
+        arrowstyle='<|-|>', mutation_scale=11, lw=0.9,
+        color='#7a2828', zorder=2))
+    ax.text((cx + R) / 2 + o_cx / 2 - 3.7, 13.5,
+            r'$\lambda = h_{ab}/h$', fontsize=9, color='#7a2828')
+    ax.text(29.5, 10.2, 'aromaticity loss along $\\lambda$',
+            ha='center', fontsize=9, style='italic', color='#6a7380')
+
+    # ---- bottom orientation strip ----------------------------------------
+    ax.text(18, 7.8,
+            r'Conventions:  lowercase orbital labels $a,b,c,\ldots$ are '
+            r'AOs;  double lines are Kekulé $\pi$-bonds;  '
+            r'dashed lines are weak inter-fragment couplings.',
+            ha='center', va='center', fontsize=9, color='#4a5668')
+    ax.text(18, 6.5,
+            r'All systems are minimal-basis, one $\pi$-orbital per atom.  '
+            r'vbt3 carries every integral ($h$, $s$, $U$, $J$, $K$, $\ldots$) '
+            r'symbolically throughout.',
+            ha='center', va='center', fontsize=9, color='#4a5668')
+
+    ax.set_title(r'Scheme 2.  Systems studied in this paper',
+                 fontsize=12, loc='left', pad=6)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTDIR, 'scheme2_systems.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'scheme2_systems.png'), dpi=150)
+    plt.close()
+    print('  scheme2_systems.pdf / .png')
+
+
+# =======================================================================
+# Scheme 3 - five covalent Rumer structures of benzene (Appendix A)
+# =======================================================================
+def scheme_3_rumer():
+    """Two Kekulé + three Dewar long-bond structures for benzene."""
+    import numpy as np
+
+    fig, axes = plt.subplots(1, 5, figsize=(11.0, 2.7))
+    labels = list('abcdef')
+    R = 1.0
+
+    # Rumer bond-pair patterns (pairs are indices i < j from 0=a, 1=b, ...)
+    rumer = [
+        ('Kek$_1$', [(0, 1), (2, 3), (4, 5)]),    # a-b, c-d, e-f
+        ('Kek$_2$', [(1, 2), (3, 4), (5, 0)]),    # b-c, d-e, f-a
+        ('Dew$_1$', [(0, 3), (1, 2), (4, 5)]),    # a-d long bond
+        ('Dew$_2$', [(1, 4), (0, 5), (2, 3)]),    # b-e long bond
+        ('Dew$_3$', [(2, 5), (0, 1), (3, 4)]),    # c-f long bond
+    ]
+
+    for ax, (title, pairs) in zip(axes, rumer):
+        ax.set_xlim(-1.7, 1.7)
+        ax.set_ylim(-1.7, 1.7)
+        ax.set_aspect('equal')
+        ax.set_axis_off()
+
+        # Hexagon vertices — start at top, go clockwise
+        xs, ys = [], []
+        for k in range(6):
+            theta = np.pi / 2 - k * np.pi / 3
+            xs.append(R * np.cos(theta))
+            ys.append(R * np.sin(theta))
+
+        # Faint hexagonal skeleton
+        for k in range(6):
+            ax.plot([xs[k], xs[(k + 1) % 6]], [ys[k], ys[(k + 1) % 6]],
+                    color='#c8d0d8', lw=0.8, zorder=1)
+
+        # Bond pairs drawn as thick curves
+        for (i, j) in pairs:
+            is_long = (j - i) % 6 == 3         # diametric pair
+            ax.plot([xs[i], xs[j]], [ys[i], ys[j]],
+                    color='#7a2828' if is_long else '#1f4068',
+                    lw=2.2 if is_long else 2.6,
+                    linestyle='--' if is_long else '-',
+                    zorder=2, solid_capstyle='round')
+
+        # Atom circles + labels
+        for k in range(6):
+            _atom(ax, xs[k], ys[k], labels[k], r=0.22, fs=9)
+
+        ax.set_title(title, fontsize=11, pad=3)
+
+    plt.suptitle('Scheme 3.  Five covalent Rumer structures of benzene',
+                 fontsize=12, y=1.02, x=0.04, ha='left')
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTDIR, 'scheme3_rumer.pdf'),
+                bbox_inches='tight')
+    plt.savefig(os.path.join(OUTDIR, 'scheme3_rumer.png'),
+                dpi=150, bbox_inches='tight')
+    plt.close()
+    print('  scheme3_rumer.pdf / .png')
+
+
+# =======================================================================
+# TOC graphic  (3.25" x 2"; ACS requirement)
+# =======================================================================
+def toc_graphic():
+    """Graphical abstract (ACS TOC): benzene -> vbt3 -> closed-form + curve.
+    Canvas is 3.25" x 1.75", split into three regions plus a title strip."""
+    import numpy as np
+    from matplotlib.patches import FancyArrowPatch
+
+    fig = plt.figure(figsize=(3.25, 1.75))
+
+    # 1) Title strip
+    fig.text(0.5, 0.93,
+             'Symbolic valence-bond theory of benzene',
+             ha='center', va='top',
+             fontsize=7.5, fontweight='bold', color='#2a3644')
+
+    # 2) Left axis: benzene ring
+    ax_L = fig.add_axes([0.00, 0.12, 0.30, 0.72])
+    ax_L.set_xlim(-1.6, 1.6)
+    ax_L.set_ylim(-1.6, 1.6)
+    ax_L.set_aspect('equal')
+    ax_L.set_axis_off()
+    R = 1.1
+    hex_xy = [(R * np.cos(np.pi / 2 - k * np.pi / 3),
+               R * np.sin(np.pi / 2 - k * np.pi / 3)) for k in range(6)]
+    for k in range(6):
+        x1, y1 = hex_xy[k]
+        x2, y2 = hex_xy[(k + 1) % 6]
+        if k % 2 == 0:
+            # double bond via twin lines
+            dx, dy = x2 - x1, y2 - y1
+            L = np.hypot(dx, dy); ux, uy = dx / L, dy / L
+            px, py = -uy * 0.09, ux * 0.09
+            ax_L.plot([x1 + px, x2 + px], [y1 + py, y2 + py],
+                      color='#1f4068', lw=1.1)
+            ax_L.plot([x1 - px, x2 - px], [y1 - py, y2 - py],
+                      color='#1f4068', lw=1.1)
+        else:
+            ax_L.plot([x1, x2], [y1, y2], color='#1f4068', lw=1.1)
+    for (x, y) in hex_xy:
+        ax_L.plot(x, y, 'o', markersize=4.5, markerfacecolor='white',
+                  markeredgecolor='#1f4068', markeredgewidth=0.8, zorder=3)
+    ax_L.text(0, -1.5, r'benzene $\pi$ (6e / 6o)',
+              ha='center', fontsize=6, color='#4a5668')
+
+    # 3) Middle axis: pipeline arrow with vbt3 label + symbolic H
+    ax_M = fig.add_axes([0.30, 0.12, 0.28, 0.72])
+    ax_M.set_xlim(0, 10)
+    ax_M.set_ylim(0, 10)
+    ax_M.set_axis_off()
+    ax_M.add_patch(FancyArrowPatch((0.5, 5), (9.5, 5),
+                   arrowstyle='-|>', mutation_scale=10, lw=1.2,
+                   color='#2a3644'))
+    ax_M.text(5, 7.2, r'vbt3', fontsize=9, fontweight='bold',
+              color='#2a3644', ha='center')
+    ax_M.text(5, 6.0, '(SymPy)', fontsize=6,
+              style='italic', color='#6a7380', ha='center')
+    ax_M.text(5, 3.3,
+              r'$H(h,s,U)$',
+              fontsize=8.5, fontweight='bold', color='#1f4068',
+              ha='center')
+    ax_M.text(5, 2.1, r'$400\times 400$  symbolic',
+              fontsize=6, color='#4a5668', ha='center')
+    ax_M.text(5, 0.9, 'non-orthogonal VB',
+              fontsize=6, style='italic', color='#6a7380', ha='center')
+
+    # 4) Right axis: formula + mini plot
+    ax_R = fig.add_axes([0.58, 0.12, 0.42, 0.72])
+    ax_R.set_axis_off()
+    ax_R.set_xlim(0, 10)
+    ax_R.set_ylim(0, 10)
+    ax_R.text(5, 9.3,
+              r'$E/t = -8 + \frac{3}{2}u - \frac{29}{288}u^{2} - \cdots$',
+              ha='center', fontsize=6.2, color='#1f4068')
+    ax_R.text(5, 8.15, r'$(u = U/t)$',
+              ha='center', fontsize=5.5, color='#6a7380')
+
+    # Mini plot of Padé vs Heisenberg asymptote
+    ax_in = fig.add_axes([0.65, 0.13, 0.31, 0.48])
+    u = np.linspace(0.1, 20, 200)
+    # Qualitative [2/4] Padé
+    E_pade = -8.0 * (1 + 0.05 * u) / (1 + 0.20 * u + 0.045 * u**2)
+    E_heis = -4.0 / u
+    ax_in.plot(u, E_pade, color='#1f4068', lw=1.1, label=r'[2/4] Padé')
+    ax_in.plot(u, E_heis, color='#7a2828', lw=0.9, ls='--',
+               label=r'$-4t^2/U$')
+    ax_in.set_xlim(0, 20)
+    ax_in.set_ylim(-8.5, 0)
+    ax_in.set_xlabel(r'$U/t$', fontsize=5.5, labelpad=0)
+    ax_in.set_ylabel(r'$E/t$', fontsize=5.5, labelpad=0)
+    ax_in.tick_params(axis='both', labelsize=5, length=2, pad=1)
+    ax_in.legend(fontsize=4.5, frameon=False, loc='lower right',
+                 handlelength=1.3, handletextpad=0.3)
+    for sp in ax_in.spines.values():
+        sp.set_linewidth(0.5)
+
+    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.pdf'),
+                bbox_inches='tight')
+    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.png'),
+                dpi=300, bbox_inches='tight')
+    plt.close()
+    print('  toc_graphic.pdf / .png')
+
+
+# =======================================================================
 if __name__ == '__main__':
     print(f'writing figures to {OUTDIR}/ ...')
+    scheme_1_pipeline()
+    scheme_2_systems()
+    scheme_3_rumer()
+    toc_graphic()
     figure_1_h2()
     figure_2_allyl()
     figure_3_degeneracy()
