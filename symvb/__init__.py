@@ -15,4 +15,4 @@ import logging
 
 logging.basicConfig(format='%(levelname)-8s: %(message)s')
 
-__version__ = "1.112"
+__version__ = "2.0.0"
