@@ -7,7 +7,7 @@ r_I of either donor or acceptor.  If that's wrong even at a few percent,
 the clean decoupling  { Q_s, Q_m, Q_e }  gets bilinear couplings between
 the CT modes, the inter-fragment R, and the intra-fragment r's.
 
-This script tests the claim directly within vbt3 by:
+This script tests the claim directly within symvb by:
 
   1. Building the full 300-dim FCI for  N_alpha = 3, N_beta = 2, N_orbs = 6
      with SIX independent parameters instead of the usual (h, t, U):
@@ -34,6 +34,8 @@ This script tests the claim directly within vbt3 by:
 The test is exact within the orthogonal-AO Hubbard model and is a
 meaningful probe of whether the CT-mode reduction survives asymmetric
 geometries (which is what distorted real molecules actually explore).
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h6_plus_t_assumption.py
 """
 import os
 import pickle
@@ -44,8 +46,8 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 # ---------------------------------------------------------------------
@@ -71,15 +73,13 @@ def build_decomposition():
     print(f"  Basis size: {Ndet}")
 
     t0 = time.time()
-    H1 = m.build_matrix(P, op='H')
-    H2 = m.o2_matrix(P)
-    S  = m.build_matrix(P, op='S')
+    H_raw, S_raw = hamiltonian(m, P)   # 2e block folded into H_raw
     print(f"  Symbolic build: {time.time() - t0:.1f} s")
 
     h1s, h2s, h3s, t12s, t23s, Us, ss, sgs = sp.symbols(
         'h1 h2 h3 t12 t23 U s sg')
-    H_full = sp.Matrix(H1 + H2).subs({ss: 0, sgs: 0})
-    S_mat  = sp.Matrix(S).subs({ss: 0, sgs: 0})
+    H_full = H_raw.subs({ss: 0, sgs: 0})
+    S_mat  = S_raw.subs({ss: 0, sgs: 0})
     assert S_mat == sp.eye(Ndet), "AOs should be orthonormal (s = sg = 0)"
 
     # linearity: H should vanish when all params = 0
@@ -386,7 +386,7 @@ print("""
       (Q_e, r_3) coupling.  The 'nearest-neighbor' structure of the
       LVC model is robust; only the coupling coefficients get renormalized.
 
-  If you wanted to break (a) non-trivially in vbt3, the minimal extension
+  If you wanted to break (a) non-trivially in symvb, the minimal extension
   is to turn on s != 0 between the 'closest' AO pair  (e.g. s_bc) and
   include a non-zero K or M integral bridging the fragments.  That is
   the natural next step if you want to quantify corrections to the LVC

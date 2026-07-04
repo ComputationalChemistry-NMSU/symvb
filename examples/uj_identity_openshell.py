@@ -16,6 +16,8 @@ For each we confirm:
                eigenvalue shifts by C(N,2)*U; level spacings preserved
   * Eq. (X3):  the first-order coefficients satisfy alpha_U + alpha_J = C(N,2)
                (but the individual values depend on the reference).
+
+Run from the repo root:  PYTHONPATH=. python3 examples/uj_identity_openshell.py
 """
 import os
 import sys
@@ -24,8 +26,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 import numpy as np
 import sympy as sp
 
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
 
 
 def build_full(Na, Nb, Norb, interacting_orbs, h_pairs, zero_ii=True):

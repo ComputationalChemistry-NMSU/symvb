@@ -58,6 +58,8 @@ The 4-electron neutral has d^2 E_elec / d eta^2 = 0 in the Hueckel limit
 (each pair is independently saturated -- no asymmetric-stretch
 instability at all), so the pseudo-Jahn-Teller instability is
 *charge-induced*: removing the electron turns on the reorganization.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/disphenoid_4o3e.py
 """
 import os
 import sys
@@ -67,8 +69,8 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 def build_disphenoid_H(Na, Nb, include_U=True):
@@ -89,11 +91,10 @@ def build_disphenoid_H(Na, Nb, include_U=True):
         max_2e_centers=1,
     )
     P = generate_dets(Na, Nb, 4)
-    H1 = m.build_matrix(P, op='H')
-    H = sp.Matrix(H1)
-    if include_U:
-        H = H + sp.Matrix(m.o2_matrix(P))
-    return P, H
+    # hamiltonian() folds the on-site 2e block into H; skip it explicitly
+    # for the deliberately one-electron (include_U=False) model
+    H, _ = hamiltonian(m, P, two_electron=include_U)
+    return P, sp.Matrix(H)
 
 
 def decompose_linear(H, symbols, fixed_subs):

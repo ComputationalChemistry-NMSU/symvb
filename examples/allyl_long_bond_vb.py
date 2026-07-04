@@ -50,9 +50,9 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import FixedPsi, Molecule
-from vbt3.fixed_psi import generate_dets
-from vbt3.spin import s_squared_matrix, project_onto_S
+from symvb import FixedPsi, Molecule, hamiltonian, operators as op, structure_vector
+from symvb.fixed_psi import generate_dets
+from symvb.spin import s_squared_matrix, project_onto_S
 
 
 # ------------------------------------------------------------------------
@@ -71,13 +71,11 @@ det_strings = [p.dets[0].det_string for p in P]
 print(f"9-det basis: {det_strings}")
 
 t0 = time.time()
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
-S  = m.build_matrix(P, op='S')
+H_det, S_det = hamiltonian(m, P)
 print(f"9-det symbolic H build: {time.time()-t0:.1f}s")
 
-H_det = sp.Matrix(H1 + H2)
-S_det = sp.Matrix(S)
+H_det = sp.Matrix(H_det)
+S_det = sp.Matrix(S_det)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 
 
@@ -86,7 +84,7 @@ h, s, U, J, K, M = sp.symbols('h s U J K M')
 # ------------------------------------------------------------------------
 #   Parent dets are chosen so that couple_orbitals(o1, o2) pairs the
 #   desired alpha/beta pair into a singlet HL bond.  Creation-order
-#   signs are handled by vbt3 when build_matrix canonicalises.
+#   signs are handled by symvb when build_matrix canonicalises.
 #
 #   Phi_ab: parent 'aBcC' = a_alpha b_beta c_alpha c_beta;
 #            couple positions (0, 1)  -> HL(a,b) x c^2
@@ -112,49 +110,17 @@ print(f"  Phi_ab = {Phi_ab_c}")
 print(f"  Phi_bc = {Phi_bc_c}")
 print(f"  Phi_ac = {Phi_ac_c}")
 
-# Extract numeric 9-dim vector for each VB structure (at s=0, dets orthonormal)
-# canonicalize() only sorts within alpha/beta blocks; the result may still
-# have spin pattern like uuLL instead of standard uLuL.  Convert explicitly
-# by matching SO-occupations and tracking the fermion reorder sign.
-ds_to_idx = {d: i for i, d in enumerate(det_strings)}
-
-def to_standard(det_string):
-    """Return (standard_uLuL_string, sign) such that |det_string>_raw = sign * |standard>_raw."""
-    orbs = 'abcdefghij'
-    so_list = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in det_string]
-    alphas = sorted(c for c in det_string if c.islower())
-    betas  = sorted(c for c in det_string if c.isupper())
-    std = ''
-    na, nb = len(alphas), len(betas)
-    for i in range(min(na, nb)):
-        std += alphas[i] + betas[i]
-    std += ''.join(alphas[nb:]) + ''.join(betas[na:])
-    std_so = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in std]
-    def inv(lst):
-        return sum(1 for i in range(len(lst)) for j in range(i+1, len(lst)) if lst[i] > lst[j])
-    # use abs(diff) to keep integer; parity is what matters
-    sign = 1 if abs(inv(so_list) - inv(std_so)) % 2 == 0 else -1
-    return std, sign
-
-def vb_vector(fp):
-    v = sp.zeros(9, 1)
-    for d, c in fp:
-        std, sgn = to_standard(d.det_string)
-        if std not in ds_to_idx:
-            raise RuntimeError(f"Standardised det {std} not in 9-det basis")
-        v[ds_to_idx[std]] += sgn * c
-    return v
-
-v_ab = vb_vector(Phi_ab_c)
-v_bc = vb_vector(Phi_bc_c)
-v_ac = vb_vector(Phi_ac_c)
-V = sp.Matrix.hstack(v_ab, v_bc, v_ac)   # 9 x 3
+# Expand each VB structure over the 9-det basis. structure_vector canonicalises
+# the raw structure and tracks the fermion sign of the reorder into standard
+# (interleaved) determinant order, so the uuLL pattern from couple_pairs(0, 3)
+# on the 'abBC' parent lands with the correct sign.
+V = sp.Matrix.hstack(*[structure_vector(fp, det_strings)
+                       for fp in (Phi_ab, Phi_bc, Phi_ac)])   # 9 x 3
 
 
 # ------------------------------------------------------------------------
-# 3. 3x3 H and S in VB basis, computed directly as V^T H_det V where V is
-#    the 9 x 3 coefficient matrix (build_matrix does not handle uuLL spin
-#    patterns produced by couple_orbitals(0, 3) on the parent 'abBC').
+# 3. 3x3 H and S in VB basis, formed as V^T H_det V: a projection of the
+#    9-det Hamiltonian onto the three (un-normalised, norm^2 = 2) structures.
 # ------------------------------------------------------------------------
 H_det_s0 = H_det.subs({s: 0, h: -1})
 S_det_s0 = S_det.subs({s: 0})
@@ -336,53 +302,16 @@ print("    -> w_ab = w_bc = 1/4, w_ac = 1/2 (exact, U-independent in covalent se
 
 # Connection to NO (natural orbital) occupations
 print("\n  Natural-orbital occupations of the strong-U GS:")
-# Build 1-RDM in AO basis at U=1024 and diagonalise
-from vbt3.spin import s_squared_matrix  # already imported, for completeness
+# Build 1-RDM in AO basis at the strong-U point and diagonalise
 o_big = analyse(16384, 0, 0, 0)
 psi = o_big['psi_fci']
-# AO 1-RDM (spin-summed): reuse construction from allyl_biradical.py
-def build_rho_ao(det_strings):
-    def canon_idx(ds):
-        out = []
-        for c in ds:
-            orb = 'abc'.index(c.lower())
-            spin = 0 if c.islower() else 1
-            out.append(2 * orb + spin)
-        return out
-    def vbt_sign(ds):
-        idx = canon_idx(ds); n = len(idx); inv = 0
-        for i in range(n):
-            for j in range(i + 1, n):
-                if idx[i] > idx[j]: inv += 1
-        return (-1) ** inv
-    sigmas = np.array([vbt_sign(ds) for ds in det_strings], dtype=float)
-    occ_to_idx = {tuple(sorted(canon_idx(ds))): i for i, ds in enumerate(det_strings)}
-    def apply_pq(occ, p, q, spin):
-        qi = 2 * 'abc'.index(q) + spin
-        pi = 2 * 'abc'.index(p) + spin
-        if qi not in occ: return None
-        k = occ.index(qi); sg = (-1) ** k
-        after = occ[:k] + occ[k+1:]
-        if pi in after: return None
-        j = 0
-        while j < len(after) and after[j] < pi: j += 1
-        sg *= (-1) ** j
-        return sg, tuple(after[:j] + [pi] + after[j:])
-    rho_c = np.zeros((3, 3, 9, 9))
-    for J_idx, ds in enumerate(det_strings):
-        occ = sorted(canon_idx(ds))
-        for ip, p in enumerate('abc'):
-            for iq, q in enumerate('abc'):
-                for spin in (0, 1):
-                    res = apply_pq(occ, p, q, spin)
-                    if res is None: continue
-                    sg, oI = res
-                    I = occ_to_idx.get(oI)
-                    if I is not None:
-                        rho_c[ip, iq, I, J_idx] += sg
-    return sigmas[None, None, :, None] * rho_c * sigmas[None, None, None, :]
-
-rho_ao_9 = build_rho_ao(det_strings)
+# AO 1-RDM (spin-summed) via second-quantized c†_p c_q from symvb.operators.
+rho_ao_9 = np.zeros((3, 3, 9, 9))
+for ip, p in enumerate('abc'):
+    for iq, q in enumerate('abc'):
+        c_pq = (op.cdag(p, 'alpha') @ op.c(q, 'alpha')
+                + op.cdag(p, 'beta') @ op.c(q, 'beta'))
+        rho_ao_9[ip, iq] = np.array(c_pq.matrix(det_strings), dtype=float)
 gamma_ao = np.array([[psi @ rho_ao_9[i, j] @ psi for j in range(3)] for i in range(3)])
 gamma_ao = 0.5 * (gamma_ao + gamma_ao.T)
 nat_occs = np.sort(np.linalg.eigvalsh(gamma_ao))[::-1]
@@ -402,6 +331,9 @@ print(f"    VB long-bond weight w_ac = {o_big['w_ac']:.4f}   (exact 1/2)")
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+# fonttype 42 keeps PDF text as editable TrueType text, not Type-3 outlines
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['ps.fonttype'] = 42
 
 U_grid = np.logspace(-2, 4, 200)
 records = [analyse(Uv, 0, 0, 0) for Uv in U_grid]
@@ -415,7 +347,8 @@ def no_psi3(psi):
 
 bir_no = 0.5 * np.array([no_psi3(r['psi_fci']) for r in records])
 
-fig, ax = plt.subplots(1, 3, figsize=(13.5, 4.2))
+plt.rcParams.update({'font.size': 8})
+fig, ax = plt.subplots(1, 3, figsize=(7.0, 2.6), gridspec_kw={'wspace': 0.32})
 
 # Panel (a): VB weights
 ax[0].plot(U_grid, arr('w_ab'), 'C0-',  lw=1.8, label=r'$w_{ab}$ (Kekulé)')
@@ -426,10 +359,11 @@ for y in (0.125, 0.25, 0.375, 0.5):
     ax[0].axhline(y, color='k', lw=0.3, alpha=0.3)
 ax[0].set_xscale('log')
 ax[0].set_xlabel(r'$U / |h|$')
-ax[0].set_ylabel('Chirgwin–Coulson weight in FCI ground state')
-ax[0].set_title('(a)  VB weights vs $U$')
-ax[0].legend(fontsize=9, loc='center left')
-ax[0].set_ylim(0, 0.6); ax[0].grid(alpha=0.3)
+ax[0].set_ylabel('Chirgwin–Coulson weight')
+ax[0].set_title('(A)  VB weights vs $U$')
+ax[0].legend(fontsize=6.2, loc='upper right', labelspacing=0.25,
+             handlelength=1.5, borderpad=0.3, framealpha=0.9)
+ax[0].set_ylim(0, 0.86); ax[0].grid(alpha=0.3)
 ax[0].text(2e-2, 0.127, '1/8', fontsize=8, color='gray', va='bottom')
 ax[0].text(2e-2, 0.252, '1/4', fontsize=8, color='gray', va='bottom')
 ax[0].text(2e-2, 0.377, '3/8', fontsize=8, color='gray', va='bottom')
@@ -446,31 +380,40 @@ ax[1].axhline(-2 * np.sqrt(2), color='k', lw=0.6, alpha=0.6)
 ax[1].set_xscale('log')
 ax[1].set_xlabel(r'$U / |h|$')
 ax[1].set_ylabel(r'$E - U$  (units of $|h|$)')
-ax[1].set_title(r'(b)  $\Delta_{\rm lb} = E_{\rm 3-cov} - E_{\rm 2-cov} = -\sqrt{2}$')
-ax[1].legend(fontsize=9, loc='center right'); ax[1].grid(alpha=0.3)
-ax[1].text(2e-2, -np.sqrt(2) + 0.05, r'$-\sqrt{2}$', color='C3', fontsize=9)
-ax[1].text(2e-2, -2 * np.sqrt(2) + 0.05, r'$-2\sqrt{2}$', color='k', fontsize=9)
+ax[1].set_title(r'(B)  $\Delta_{\rm lb} = -\sqrt{2}\,|h|$')
+ax[1].legend(fontsize=6.2, loc='center right',
+             labelspacing=0.25, handlelength=1.5, borderpad=0.3,
+             framealpha=0.9)
+ax[1].grid(alpha=0.3)
+ax[1].text(2e-2, -np.sqrt(2) + 0.16, r'$-\sqrt{2}$', color='C3', fontsize=8, va='bottom')
+ax[1].text(2e-2, -2 * np.sqrt(2) + 0.16, r'$-2\sqrt{2}$', color='k',
+           fontsize=8, va='bottom')
 
 # Panel (c): biradical diagnostics from VB vs NO
 ax[2].plot(U_grid, arr('w_ac'), 'C3-', lw=2.2, label=r'$w_{ac}$ (VB long-bond)')
-ax[2].plot(U_grid, bir_no,     'C2--', lw=1.8, label=r'$n(\psi_3)/2$ (NO, anti-bonding)')
+ax[2].plot(U_grid, bir_no,     'C2--', lw=1.8, label=r'$n_3/2$ (biradical index)')
 ax[2].plot(U_grid, arr('w_ac') - bir_no, 'C7:', lw=1.4,
-           label=r'difference  $w_{ac} - n(\psi_3)/2$')
+           label=r'difference  $w_{ac} - n_3/2$')
 ax[2].axhline(0.5, color='C3', lw=0.6, alpha=0.6)
 ax[2].axhline(3/8, color='C2', lw=0.6, alpha=0.6)
 ax[2].axhline(1/8, color='C7', lw=0.6, alpha=0.6)
 ax[2].set_xscale('log')
 ax[2].set_xlabel(r'$U / |h|$')
 ax[2].set_ylabel('biradical diagnostic')
-ax[2].set_title('(c)  VB vs NO: two biradical scales')
-ax[2].legend(fontsize=9, loc='center left'); ax[2].grid(alpha=0.3)
-ax[2].text(2e3, 0.51, r'$1/2$', color='C3', fontsize=9)
-ax[2].text(2e3, 0.385, r'$3/8$', color='C2', fontsize=9)
-ax[2].text(2e3, 0.135, r'$1/8$', color='C7', fontsize=9)
+ax[2].set_title('(C)  VB vs NO: two biradical scales')
+ax[2].set_ylim(0, 0.62)
+ax[2].legend(fontsize=6.2, loc='upper left', bbox_to_anchor=(0.02, 0.575),
+             labelspacing=0.25, handlelength=1.5, borderpad=0.3,
+             framealpha=0.9)
+ax[2].grid(alpha=0.3)
+ax[2].text(2e3, 0.56, r'$1/2$', color='C3', fontsize=8, va='bottom')
+ax[2].text(2e3, 0.43, r'$3/8$', color='C2', fontsize=8, va='bottom')
+ax[2].text(2e3, 0.18, r'$1/8$', color='C7', fontsize=8, va='bottom')
 
 plt.tight_layout()
 outpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                      '..', 'figures', 'fig_allyl_long_bond.png')
-plt.savefig(outpath, dpi=140)
+                      '..', '..', 'vbt-3', 'figures', 'fig5_allyl_long_bond.png')
+plt.savefig(outpath, dpi=450, bbox_inches='tight')
+plt.savefig(outpath.replace('.png', '.pdf'), bbox_inches='tight')
 plt.close()
 print(f"\nFigure saved: {outpath}")

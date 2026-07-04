@@ -24,7 +24,7 @@ import time
 import numpy as np
 import sympy as sp
 
-from vbt3 import Molecule, SlaterDet, symmetry
+from symvb import Molecule, SlaterDet, symmetry
 
 
 def implicit_c2_for_L4():

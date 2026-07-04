@@ -26,11 +26,11 @@ import sympy as sp
 from collections import Counter
 from scipy.linalg import eigh
 
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.spin import (
+from symvb import Molecule, SlaterDet, symmetry
+from symvb.spin import (
     s_squared_matrix,
     eta_squared_matrix,
-    _apply_c, _canon_det, _vbt3_to_canonical_sign,
+    _apply_c, _canon_det, _symvb_to_canonical_sign,
 )
 
 
@@ -73,7 +73,7 @@ def a1g_projector(det_strings):
 
 
 def double_occ(ds):
-    """Number of doubly-occupied sites in a vbt3 det string."""
+    """Number of doubly-occupied sites in a symvb det string."""
     occ = {}
     for c in ds:
         occ.setdefault(c.lower(), [False, False])
@@ -91,7 +91,7 @@ def build_eta_plus(det_strings_with_doping, orbital_index):
     """
     N = len(det_strings_with_doping)
     index = {d: i for i, d in enumerate(det_strings_with_doping)}
-    vsign = np.array([_vbt3_to_canonical_sign(d, orbital_index)
+    vsign = np.array([_symvb_to_canonical_sign(d, orbital_index)
                       for d in det_strings_with_doping])
     EP = np.zeros((N, N))
     for col, ds in enumerate(det_strings_with_doping):

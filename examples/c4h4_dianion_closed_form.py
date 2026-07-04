@@ -19,17 +19,18 @@ The interacting ground state is the smallest real root at h < 0, U > 0.
 It is analytically available via Cardano but does NOT factor into a clean
 single-square-root expression -- unlike the free-fermion (U = 0) limit.
 
-WARNING:  `vbt3.symmetry.totally_symmetric_basis` constructs orbit sums
-using +1 weights only and IGNORES fermion reordering signs.  For the
-4-ring + 6-electron case those signs matter and the naive orbit basis
-does NOT span A_1.  The script below builds a proper sign-aware
-Reynolds projector and verifies against full 16-dim diagonalisation.
+For C4H4 dianion (L=4, N=6, over half-filling), the permutation
+representation of D_4 carries -1 signs that the unsigned orbit-sum
+projector `symvb.symmetry.totally_symmetric_basis` ignores; use
+`symvb.symmetry.signed_totally_symmetric_basis` instead, which is what
+this script does below.
 """
 import numpy as np
 import sympy as sp
 
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.spin import s_squared_matrix
+from symvb import Molecule, SlaterDet, symmetry
+from symvb.symmetry import signed_totally_symmetric_basis
+from symvb.spin import s_squared_matrix
 
 
 def double_occ(ds):
@@ -41,51 +42,6 @@ def double_occ(ds):
         else:
             occ[c.lower()][1] = True
     return sum(1 for ab in occ.values() if ab[0] and ab[1])
-
-
-def signed_a1_projector(dets, generators_maps, canon):
-    """
-    Build the A_1 projector P = (1/|G|) * sum_g rho(g), where rho(g) is
-    the permutation-with-sign representation on the det basis.  Columns of
-    the returned U span the A_1 subspace and are orthonormal.
-
-    generators_maps: list of orbital-label maps (dicts) for each generator.
-    """
-    # Raw generators as signed permutation matrices
-    N = len(dets)
-    gens_mats = []
-    for om in generators_maps:
-        perm, signs = symmetry.apply_orbital_permutation(om, dets, canon)
-        M = np.zeros((N, N))
-        for i in range(N):
-            M[perm[i], i] = signs[i]
-        gens_mats.append(M)
-
-    # Enumerate group elements by BFS (matrices, not permutations-only)
-    seen = {tuple(np.eye(N).flatten().round(10))}
-    queue = [np.eye(N)]
-    elements = [np.eye(N)]
-    # Guard against runaway expansion
-    max_order = 128
-    while queue and len(elements) < max_order:
-        g = queue.pop()
-        for M in gens_mats:
-            new = M @ g
-            key = tuple(new.flatten().round(10))
-            if key not in seen:
-                seen.add(key)
-                queue.append(new)
-                elements.append(new)
-
-    P = np.zeros((N, N))
-    for g in elements:
-        P += g
-    P /= len(elements)
-
-    # Orthonormal basis of the A_1 subspace
-    evals, evecs = np.linalg.eigh(0.5 * (P + P.T))
-    U = evecs[:, np.abs(evals - 1.0) < 1e-8]
-    return U, len(elements)
 
 
 def build_3x3():
@@ -106,8 +62,10 @@ def build_3x3():
     C4 = {'a': 'b', 'b': 'c', 'c': 'd', 'd': 'a'}
     sv = {'a': 'a', 'b': 'd', 'c': 'c', 'd': 'b'}
 
-    # Sign-aware A_1 projector (old totally_symmetric_basis ignored signs)
-    U_a, group_order = signed_a1_projector(dets, [C4, sv], canon)
+    # Sign-aware A_1 projector (totally_symmetric_basis ignores fermion signs)
+    signed_gens = [symmetry.apply_orbital_permutation(om, dets, canon)
+                   for om in (C4, sv)]
+    U_a, group_order = signed_totally_symmetric_basis(signed_gens, len(dets))
     print(f'Sign-aware A_1 projector: dim = {U_a.shape[1]}, '
           f'group order = {group_order}')
 
@@ -240,7 +198,7 @@ def main():
 
     # --- cross-check against full 16-dim diagonalisation ---------------
     print('\nCross-check vs full 16-dim Hubbard diagonalisation at h=-1:')
-    from vbt3.spin import s_squared_matrix
+    from symvb.spin import s_squared_matrix
     m = Molecule(zero_ii=True,
                  subst={'s': ('S_ab', 'S_bc', 'S_cd', 'S_ad'),
                         'h': ('H_ab', 'H_bc', 'H_cd', 'H_ad')},

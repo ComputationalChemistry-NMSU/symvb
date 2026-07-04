@@ -41,9 +41,9 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import FixedPsi, Molecule
-from vbt3.fixed_psi import generate_dets
-from vbt3.spin import s_squared_matrix, project_onto_S
+from symvb import FixedPsi, Molecule, hamiltonian, structure_vector
+from symvb.fixed_psi import generate_dets
+from symvb.spin import s_squared_matrix, project_onto_S
 
 
 # ------------------------------------------------------------------------
@@ -62,11 +62,9 @@ det_strings = [p.dets[0].det_string for p in P]
 print(f"3c2e 9-det basis: {det_strings}")
 
 t0 = time.time()
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
-S  = m.build_matrix(P, op='S')
-H_det = sp.Matrix(H1 + H2)
-S_det = sp.Matrix(S)
+H_det, S_det = hamiltonian(m, P)
+H_det = sp.Matrix(H_det)
+S_det = sp.Matrix(S_det)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_det_s0 = H_det.subs({s: 0, h: -1})
 S_det_s0 = S_det.subs({s: 0})
@@ -78,43 +76,15 @@ print(f"9-det H build: {time.time()-t0:.1f}s")
 # ------------------------------------------------------------------------
 # At orthogonal AOs all 9 dets are orthonormal; the 6 singlet structures
 # below are mutually orthogonal (disjoint det supports, normalisation 1/sqrt(2)
-# or 1 for ionic).
-ds_to_idx = {d: i for i, d in enumerate(det_strings)}
-
-def to_standard(det_string):
-    orbs = 'abcdefghij'
-    so_list = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in det_string]
-    alphas = sorted(c for c in det_string if c.islower())
-    betas  = sorted(c for c in det_string if c.isupper())
-    std = ''
-    na, nb = len(alphas), len(betas)
-    for i in range(min(na, nb)):
-        std += alphas[i] + betas[i]
-    std += ''.join(alphas[nb:]) + ''.join(betas[na:])
-    std_so = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in std]
-    def inv(lst):
-        return sum(1 for i in range(len(lst)) for j in range(i+1, len(lst)) if lst[i] > lst[j])
-    sign = 1 if abs(inv(so_list) - inv(std_so)) % 2 == 0 else -1
-    return std, sign
-
-def vec(coefs):
-    """coefs: list of (det_string, coef) pairs."""
-    v = sp.zeros(9, 1)
-    for ds, c in coefs:
-        std, sgn = to_standard(ds)
-        v[ds_to_idx[std]] += sgn * c
-    return v
-
-# Ionic: p^2 = (p_alpha p_beta)  = single det (already canonical)
-v_a2 = vec([('aA', 1)])
-v_b2 = vec([('bB', 1)])
-v_c2 = vec([('cC', 1)])
-# HL singlets (un-normalised -- norm^2 = 2)
-v_ab = vec([('aB', 1), ('bA', 1)])
-v_bc = vec([('bC', 1), ('cB', 1)])
-v_ac = vec([('aC', 1), ('cA', 1)])
-
-V = sp.Matrix.hstack(v_a2, v_b2, v_c2, v_ab, v_bc, v_ac)   # 9 x 6
+# or 1 for ionic).  structure_vector expands each into the 9-det basis with the
+# correct fermion sign: the ionic p^2 structures are single determinants
+# (p_alpha p_beta), the HL singlets couple an alpha/beta pair (un-normalised,
+# norm^2 = 2).
+structures = [FixedPsi('aA'), FixedPsi('bB'), FixedPsi('cC'),
+              FixedPsi('aB', coupled_pairs=[(0, 1)]),
+              FixedPsi('bC', coupled_pairs=[(0, 1)]),
+              FixedPsi('aC', coupled_pairs=[(0, 1)])]
+V = sp.Matrix.hstack(*[structure_vector(st, det_strings) for st in structures])
 labels = ['a^2', 'b^2', 'c^2', 'HL(a,b)', 'HL(b,c)', 'HL(a,c)']
 
 
@@ -252,36 +222,22 @@ U_grid = np.logspace(-2, 4, 200)
 recs_c = [analyse(Uv, 0, 0, 0) for Uv in U_grid]
 arr = lambda key: np.array([r[key] for r in recs_c])
 
-# Also rerun anion for side-by-side (re-import)
-import importlib
-anion_module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'allyl_long_bond_vb.py')
-# Anion analytic weights (U-independent covalent coefficients at large U, and
-# Huckel weights at U=0). For the figure we rebuild the anion analyse().
-from vbt3.fixed_psi import generate_dets as _gen
+# Also rebuild the anion (3c4e) for the side-by-side panel: its 9-det H and the
+# three covalent Rumer structures (Kekule a-b, Kekule b-c, long bond a-c).
 m2 = Molecule(zero_ii=True, interacting_orbs=['ab', 'bc'],
               subst={'h': ('H_ab', 'H_bc'), 's': ('S_ab', 'S_bc')},
               subst_2e={'U': ('1111',), 'J': ('1212',), 'K': ('1122',),
                         'M': ('1112', '1121', '1222')},
               max_2e_centers=2)
-P2 = _gen(2, 2, 3)
+P2 = generate_dets(2, 2, 3)
 ds2 = [p.dets[0].det_string for p in P2]
-H12 = m2.build_matrix(P2, op='H'); H22 = m2.o2_matrix(P2)
-Hd2 = sp.Matrix(H12 + H22).subs({s: 0, h: -1})
-ds2_to_idx = {d: i for i, d in enumerate(ds2)}
+Hd2, _ = hamiltonian(m2, P2)
+Hd2 = sp.Matrix(Hd2).subs({s: 0, h: -1})
 
-def vec2(coefs):
-    v = sp.zeros(9, 1)
-    for ds, cc in coefs:
-        std, sgn = to_standard(ds)
-        v[ds2_to_idx[std]] += sgn * cc
-    return v
-
-# Anion singlet VB structures (reconstructed directly)
-v2_ab = vec2([('aBcC', 1), ('bAcC', 1)])
-v2_bc = vec2([('aAbC', 1), ('aAcB', 1)])
-v2_ac = vec2([('abBC', 1), ('cbBA', 1)])
-V2 = sp.Matrix.hstack(v2_ab, v2_bc, v2_ac)
+V2 = sp.Matrix.hstack(*[structure_vector(fp, ds2) for fp in (
+    FixedPsi('aBcC', coupled_pairs=[(0, 1)]),
+    FixedPsi('aAbC', coupled_pairs=[(2, 3)]),
+    FixedPsi('abBC', coupled_pairs=[(0, 3)]))])
 norms2 = [sp.sqrt(V2[:, i].dot(V2[:, i])) for i in range(3)]
 V2_np = np.array(V2, dtype=float) / np.array([float(n) for n in norms2])[None, :]
 Hd2_fn = sp.lambdify((U, J, K, M), Hd2, 'numpy')
@@ -331,6 +287,7 @@ ax[1].set_ylim(0, 0.6); ax[1].grid(alpha=0.3)
 plt.tight_layout()
 outpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       '..', 'figures', 'fig_allyl_cation_long_bond.png')
+os.makedirs(os.path.dirname(outpath), exist_ok=True)
 plt.savefig(outpath, dpi=140)
 plt.close()
 print(f"\nFigure saved: {outpath}")

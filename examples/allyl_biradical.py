@@ -31,9 +31,9 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
-from vbt3.spin import s_squared_matrix
+from symvb import Molecule, SlaterDet, symmetry, hamiltonian, operators as op
+from symvb.fixed_psi import generate_dets
+from symvb.spin import s_squared_matrix
 
 
 # ------------------------------------------------------------------------
@@ -52,11 +52,10 @@ det_strings = [p.dets[0].det_string for p in P]
 print("Det basis:", det_strings)
 
 t0 = time.time()
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
+H_raw, _ = hamiltonian(m, P)
 print(f"Symbolic build: {time.time()-t0:.1f}s")
 
-H = sp.Matrix(H1 + H2)
+H = sp.Matrix(H_raw)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_s0 = H.subs({s: 0, h: -1})
 
@@ -64,6 +63,8 @@ H_s0 = H.subs({s: 0, h: -1})
 # ------------------------------------------------------------------------
 # 2. A_1 (sigma = +1) projector
 # ------------------------------------------------------------------------
+# Built symbolically so H_red can be lambdified over (U, J, K, M) below;
+# symmetry.signed_totally_symmetric_basis returns a numeric basis instead.
 def canon(ds):
     fp = SlaterDet(ds).get_sorted()
     return fp.dets[0].det_string, fp.coefs[0]
@@ -138,80 +139,17 @@ ion_mask = np.array([is_ionic(d) for d in det_strings], dtype=float)
 Proj_lb9  = np.diag(lb_mask)
 Proj_ion9 = np.diag(ion_mask)
 
-# 1-RDM in AO basis (spin-summed):  (rho_ao)_{p,q}  =  sum_sigma <a^+_{p,sigma} a_{q,sigma}>.
-# Work in an ORBITAL-INTERLEAVED canonical spin-orbital ordering
-#   slot order: (alpha_a, beta_a, alpha_b, beta_b, alpha_c, beta_c)
-# vbt3 strings use a different ordering (alpha_i/beta_i zipped alphabetically);
-# the sign relating the two is sigma_I for each det, so we transform
-#   O_vbt3 = diag(sigma) @ O_canon @ diag(sigma).
+# 1-RDM in AO basis (spin-summed):  (rho_ao)_{p,q} = sum_sigma <c†_{p,sigma} c_{q,sigma}>,
+# built with symvb.operators, which tracks the interleaved-JW fermion signs and
+# returns the matrix directly in the symvb determinant basis.
+rho_ao_9 = np.zeros((3, 3, 9, 9))
+for ip, p in enumerate('abc'):
+    for iq, q in enumerate('abc'):
+        c_pq = (op.cdag(p, 'alpha') @ op.c(q, 'alpha')
+                + op.cdag(p, 'beta') @ op.c(q, 'beta'))
+        rho_ao_9[ip, iq] = np.array(c_pq.matrix(det_strings), dtype=float)
 
-def canon_indices(ds):
-    """Return list of canonical slot indices (0..5) for the spin-orbitals
-    occupied by det string `ds`, in the order the vbt3 string lists them."""
-    out = []
-    for c in ds:
-        orb = 'abc'.index(c.lower())
-        spin = 0 if c.islower() else 1
-        out.append(2 * orb + spin)
-    return out
-
-def vbt3_sign(ds):
-    """Sign such that |ds>_vbt3 = sign * |ds>_canonical."""
-    idx = canon_indices(ds)
-    inv = 0
-    n = len(idx)
-    for i in range(n):
-        for j in range(i + 1, n):
-            if idx[i] > idx[j]:
-                inv += 1
-    return (-1) ** inv
-
-sigmas = np.array([vbt3_sign(ds) for ds in det_strings], dtype=float)
-
-# canonical-sorted occ tuple -> det index
-occ_sorted_to_idx = {tuple(sorted(canon_indices(ds))): i
-                     for i, ds in enumerate(det_strings)}
-
-def apply_pq_canon(occ_sorted, p, q, spin):
-    """<D_I|a^+_p_spin a_q_spin|D_J> in canonical ordering; D_J given by sorted
-    canonical-index list occ_sorted.  Returns (sign, sorted occ of D_I) or None."""
-    q_idx = 2 * 'abc'.index(q) + spin
-    p_idx = 2 * 'abc'.index(p) + spin
-    if q_idx not in occ_sorted:
-        return None
-    k = occ_sorted.index(q_idx)
-    sign_q = (-1) ** k
-    after = occ_sorted[:k] + occ_sorted[k + 1:]
-    if p_idx in after:
-        return None
-    j = 0
-    while j < len(after) and after[j] < p_idx:
-        j += 1
-    sign_p = (-1) ** j
-    new_occ = after[:j] + [p_idx] + after[j:]
-    return sign_q * sign_p, tuple(new_occ)
-
-rho_ao_canon_9 = np.zeros((3, 3, 9, 9))
-for J, ds_J in enumerate(det_strings):
-    occ_J = sorted(canon_indices(ds_J))
-    for ip, p in enumerate('abc'):
-        for iq, q in enumerate('abc'):
-            for spin in (0, 1):
-                res = apply_pq_canon(occ_J, p, q, spin)
-                if res is None:
-                    continue
-                sign, occ_I = res
-                I = occ_sorted_to_idx.get(occ_I)
-                if I is None:
-                    continue
-                rho_ao_canon_9[ip, iq, I, J] += sign
-
-# Transform to vbt3 basis: O_vbt3 = diag(sigma) O_canon diag(sigma)
-rho_ao_9 = (sigmas[None, None, :, None]
-            * rho_ao_canon_9
-            * sigmas[None, None, None, :])
-
-# S^2 operator (already in vbt3 basis)
+# S^2 operator (already in symvb basis)
 S2_9 = s_squared_matrix(det_strings, orbs='abc')
 
 
@@ -275,7 +213,7 @@ print(f"  rho_a   = {o0['rho'][0]:.4f}    (exact 3/2)")
 print(f"  rho_b   = {o0['rho'][1]:.4f}    (exact 1)")
 print(f"  <d>_a   = {o0['d'][0]:.4f}   (exact 9/16 = 0.5625)")
 print(f"  <d>_b   = {o0['d'][1]:.4f}   (exact 1/4)")
-print(f"  w_LB    = {o0['w_lb']:.4f}   (exact 1/2)")
+print(f"  w_LB    = {o0['w_lb']:.4f}   (exact 1/8)")
 print(f"  w_ion   = {o0['w_ion']:.4f}   (exact 3/8 = 0.375)")
 print(f"  nat_occ = ({o0['nat'][0]:.4f}, {o0['nat'][1]:.4f}, {o0['nat'][2]:.4f})")
 print(f"  Huckel  = n(psi_1)={o0['huck'][0]:.4f} "

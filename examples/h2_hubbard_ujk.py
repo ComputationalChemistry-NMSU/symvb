@@ -1,16 +1,16 @@
 """
 H2 with full PPP-type two-electron integrals (U, J, K) beyond on-site U.
 
-Convention (following vbt3's subst_2e integral-pattern naming):
-    U = (aa|aa)          on-site repulsion        (pattern 1111)
-    J = (ab|ab)          two-center exchange      (pattern 1212)
-    K = (aa|bb)          two-center direct Coulomb (pattern 1122)
+Convention (matches symvb's subst_2e integral-pattern naming and
+the standard MO-theory convention used throughout the manuscript):
+    U = (aa|aa)          on-site repulsion         (pattern 1111)
+    J = (aa|bb)          two-center direct Coulomb (pattern 1212)
+    K = (ab|ab)          two-center exchange       (pattern 1122)
     M = (aa|ab), etc.    three-index integrals, set to 0 in PPP/ZDO
 
-(Note: this naming matches the integral-pattern indices, not the
-standard MO-theory convention where J usually denotes direct and K
-exchange.  In MO language our vbt3 J is the exchange integral and
-our vbt3 K is the direct Coulomb.)
+(The pattern strings count the four orbital indices in physicist
+order, so pattern 1212 = <12|12> = (aa|bb) chemist = direct, and
+pattern 1122 = <11|22> = (ab|ab) chemist = exchange.)
 
 The 4x4 A_1 x A_1 x B_1 x triplet block-diagonalisation of the
 Sz = 0 subspace now reads, at s = 0 and M = 0:
@@ -36,6 +36,8 @@ Ground state identification:
       (for h^2 = t^2).  Beyond this, the triplet dominates -- a
       Hund's-coupling / ferromagnetic instability that the full
       3-parameter model captures naturally.
+
+Run:  PYTHONPATH=. python3 examples/h2_hubbard_ujk.py
 """
 import os
 import sys
@@ -45,8 +47,9 @@ import sympy as sp
 from scipy.linalg import eigh
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
+from symvb.system import hamiltonian
 
 
 m = Molecule(
@@ -61,10 +64,9 @@ m = Molecule(
 P = generate_dets(1, 1, 2)
 print("Basis:", [p.dets[0].det_string for p in P])
 
-H1 = m.build_matrix(P, op='H')
-S  = m.build_matrix(P, op='S')
-H2 = m.o2_matrix(P)
-H  = sp.Matrix(H1 + H2)
+# one call folds the two-electron block into H (S is unused here: the
+# analysis lives on the s = 0, M = 0 block where S = I)
+H = sp.Matrix(hamiltonian(m, P)[0])
 
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 

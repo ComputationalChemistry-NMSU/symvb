@@ -30,21 +30,21 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import List, Dict
 
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.spin import s_squared_matrix, eta_squared_matrix
+from symvb import Molecule, SlaterDet, symmetry
+from symvb.spin import s_squared_matrix, eta_squared_matrix
 
 
 def ring_orbitals(L):
     """orbital labels a, b, c, ...  and nearest-neighbor edges for L-ring."""
     orbs = [chr(ord('a') + i) for i in range(L)]
     edges = [orbs[i] + orbs[(i + 1) % L] for i in range(L)]
-    # vbt3 convention: each edge listed with lowercase in alphabetical order
+    # symvb convention: each edge listed with lowercase in alphabetical order
     edges = [''.join(sorted(e)) for e in edges]
     return orbs, edges
 
 
 def ring_symmetry_maps(L):
-    """C_L rotation and a sigma_v reflection that's representable in vbt3."""
+    """C_L rotation and a sigma_v reflection that's representable in symvb."""
     orbs = [chr(ord('a') + i) for i in range(L)]
     C_L = {orbs[i]: orbs[(i + 1) % L] for i in range(L)}
     # sigma_v through orbital 'a' and (for even L) the opposite orbital

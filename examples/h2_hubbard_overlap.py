@@ -8,7 +8,7 @@ finite AO overlap.  Three questions are answered symbolically:
     (3) What is the Heisenberg-limit scaling of the superexchange
         coupling  J_AFM(U, t, s)  when the AO basis is non-orthogonal?
 
-The 2x2 A_1 block of H and S (built symbolically by vbt3) is
+The 2x2 A_1 block of H and S (built symbolically by symvb) is
 
     H_A1 = [[2hs/(1+s^2),         2h/(1+s^2)         ],
             [ 2h/(1+s^2),     U + 2hs/(1+s^2)        ]]
@@ -42,6 +42,8 @@ Three quantitative observations (printed below):
       At s = 0.25 the prefactor is reduced to 0.733 of its s = 0 value,
       a non-orthogonality correction that standard Hubbard-model derivations
       ignore.
+
+Run:  PYTHONPATH=. python3 examples/h2_hubbard_overlap.py
 """
 import os
 import sys
@@ -49,8 +51,9 @@ import sys
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
+from symvb.system import hamiltonian, chirgwin_coulson
 
 
 # ------------------------------------------------------------------------
@@ -64,8 +67,7 @@ m = Molecule(
     max_2e_centers=1,
 )
 P = generate_dets(1, 1, 2)
-H = sp.Matrix(m.build_matrix(P, op='H') + m.o2_matrix(P))
-S = sp.Matrix(m.build_matrix(P, op='S'))
+H, S = hamiltonian(m, P)          # 4x4 determinant H (2e block folded in) and S
 
 # Basis ordering from generate_dets: ['aA','aB','bA','bB']
 idx = {p.dets[0].det_string: i for i, p in enumerate(P)}
@@ -102,15 +104,13 @@ print(f"  at U=0:  {sp.simplify(E_gs.subs(U, 0))}")   # -> 2h/(1+s)
 # ------------------------------------------------------------------------
 # 3. Chirgwin-Coulson weights
 # ------------------------------------------------------------------------
-c_vec = sp.Matrix([1, sp.Symbol('r')])   # r = c_ion / c_cov
-(M_row, _) = (sp.simplify(H_A1 - E_gs * S_A1)[0, :] * c_vec).shape
-r_sol = sp.solve((H_A1 - E_gs * S_A1)[0, 0] + (H_A1 - E_gs * S_A1)[0, 1] * sp.Symbol('r'),
-                  sp.Symbol('r'))[0]
+r = sp.Symbol('r')                       # r = c_ion / c_cov from the top GHEP row
+r_sol = sp.solve((H_A1 - E_gs * S_A1)[0, 0] + (H_A1 - E_gs * S_A1)[0, 1] * r, r)[0]
 c = sp.Matrix([1, r_sol])
-Sc = S_A1 * c
-norm2 = sp.simplify((c.T * S_A1 * c)[0, 0])
-w_cov = sp.simplify(c[0] * Sc[0] / norm2)
-w_ion = sp.simplify(c[1] * Sc[1] / norm2)
+# metric-correct Chirgwin-Coulson weights; left unsimplified (the raw symbolic
+# weight is expensive to reduce, and only its U=0 value and numeric evaluations
+# are used below, both of which simplify cheaply at the point of use)
+w_cov, w_ion = chirgwin_coulson(c, S_A1)
 
 print("\nChirgwin-Coulson weights (w_cov + w_ion = 1):")
 print(f"  at U=0, any s:   w_cov = {sp.simplify(w_cov.subs(U, 0))}")

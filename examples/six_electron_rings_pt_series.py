@@ -23,7 +23,7 @@ import numpy as np
 import sympy as sp
 from fractions import Fraction
 
-from vbt3 import Molecule
+from symvb import Molecule
 
 
 def double_occ(ds):

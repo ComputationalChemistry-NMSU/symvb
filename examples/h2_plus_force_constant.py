@@ -1,7 +1,7 @@
 """H2+ force constant from symbolic VBT.
 
 Pipeline:
-  1. vbt3 builds the 2x2 one-electron Hamiltonian and overlap matrices for
+  1. symvb builds the 2x2 one-electron Hamiltonian and overlap matrices for
      {|a>, |b>} and we read off the ground-state energy
 
          E_+(R) = (h(R) + h_ab(R)) / (1 + s(R)).
@@ -30,12 +30,12 @@ import numpy as np
 import sympy as sp
 from scipy.optimize import brentq
 
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
 
 
 # ---------------------------------------------------------------------
-# 1. Symbolic 2x2 GHEP from vbt3
+# 1. Symbolic 2x2 GHEP from symvb
 # ---------------------------------------------------------------------
 m = Molecule(
     zero_ii=False,
@@ -55,8 +55,8 @@ chi = (H1 - E * S).det()
 roots = sp.solve(sp.simplify(chi), E)
 Egs_sym = sp.simplify((h_sym + hab_sym) / (1 + s_sym))
 assert any(sp.simplify(r - Egs_sym) == 0 for r in roots), \
-    "vbt3 GHEP did not reproduce E_+ = (h + h_ab)/(1 + s)"
-print("\nE_+ =", Egs_sym, "    <- vbt3 matches the closed form")
+    "symvb GHEP did not reproduce E_+ = (h + h_ab)/(1 + s)"
+print("\nE_+ =", Egs_sym, "    <- symvb matches the closed form")
 
 
 # ---------------------------------------------------------------------

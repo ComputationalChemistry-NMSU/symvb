@@ -2,14 +2,14 @@
 Allyl anion (3c4e) RS perturbation series with the full PPP-type
 (U, J, K) two-electron integrals beyond on-site U.
 
-Convention (integral-pattern indices, matching vbt3's subst_2e):
+Convention (integral-pattern indices, matching symvb's subst_2e):
     U = (aa|aa)          on-site                     (pattern 1111)
     J = (ab|ab)          two-center exchange         (pattern 1212)
     K = (aa|bb)          two-center direct Coulomb   (pattern 1122)
     M = (aa|ab), etc.    three-index, dropped (ZDO)  (pattern 1112 + perms)
 
 All matrices are built symbolically in SymPy, reduced to the 5-dim
-sigma = +1 A_1 block via vbt3.symmetry, diagonalised exactly over
+sigma = +1 A_1 block via symvb.symmetry, diagonalised exactly over
 Q[sqrt(2)], and the first two Rayleigh-Schrodinger coefficients
 are expressed as polynomials in (U, J, K).
 """
@@ -20,8 +20,8 @@ import time
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, SlaterDet, symmetry, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 # ------------------------------------------------------------------------
@@ -39,12 +39,10 @@ P = generate_dets(2, 2, 3)
 det_strings = [p.dets[0].det_string for p in P]
 
 t0 = time.time()
-H1 = m.build_matrix(P, op='H')
-S  = m.build_matrix(P, op='S')
-H2 = m.o2_matrix(P)
+H_raw, _ = hamiltonian(m, P)
 print(f"Symbolic matrix build (3c4e UJK): {time.time() - t0:.1f}s")
 
-H = sp.Matrix(H1 + H2)
+H = sp.Matrix(H_raw)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_s0 = H.subs({s: 0, h: -1, M: 0})
 
@@ -52,6 +50,8 @@ H_s0 = H.subs({s: 0, h: -1, M: 0})
 # ------------------------------------------------------------------------
 # 2.  Project to sigma = +1 subspace (reflection a <-> c)
 # ------------------------------------------------------------------------
+# Built symbolically (exact over Q[sqrt(2)]) so the PT coefficients below are
+# exact; symmetry.signed_totally_symmetric_basis returns a numeric basis.
 def canon(ds):
     fp = SlaterDet(ds).get_sorted()
     return fp.dets[0].det_string, fp.coefs[0]

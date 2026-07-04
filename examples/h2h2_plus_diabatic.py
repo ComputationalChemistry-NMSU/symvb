@@ -34,6 +34,8 @@ localizes onto one fragment.
 
 Fragment energies use Morse potentials fit to literature values for H2 and
 H2+ (atomic units throughout); the 2x2 closed form is derived in sympy.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h2h2_plus_diabatic.py
 """
 import os
 import sys

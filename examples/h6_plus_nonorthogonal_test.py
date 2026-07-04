@@ -19,6 +19,8 @@ Minimal test:
 If t_eff^{13} != 0 at s != 0, that is the direct quantitative
 manifestation of the assumption breaking, and it appears ONLY inside
 the full 300-dim FCI -- not in any hand-derivable projection.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h6_plus_nonorthogonal_test.py
 """
 import os
 import pickle
@@ -29,8 +31,8 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 CACHE_PATH = '/tmp/h6_plus_s_symbolic.pkl'
@@ -51,16 +53,14 @@ def build_s_symbolic():
     Ndet = len(P)
     print(f"  basis: {Ndet} dets")
     t0 = time.time()
-    H1 = m.build_matrix(P, op='H')
-    H2 = m.o2_matrix(P)
-    S  = m.build_matrix(P, op='S')
+    H_raw, S_raw = hamiltonian(m, P)   # 2e block folded into H_raw
     print(f"  symbolic build: {time.time()-t0:.1f} s")
 
     h, t, s, U, K, M = sp.symbols('h t s U K M')
     # sg (inter-pair overlap) defaults to S_bc, S_de symbolic -- set to 0
     sg_ab, sg_cd = sp.Symbol('S_bc'), sp.Symbol('S_de')
-    H_sym = sp.Matrix(H1 + H2).subs({K: 0, M: 0, sg_ab: 0, sg_cd: 0})
-    S_sym = sp.Matrix(S).subs({sg_ab: 0, sg_cd: 0})
+    H_sym = H_raw.subs({K: 0, M: 0, sg_ab: 0, sg_cd: 0})
+    S_sym = S_raw.subs({sg_ab: 0, sg_cd: 0})
 
     return H_sym, S_sym, Ndet, [p.dets[0].det_string for p in P]
 
@@ -194,5 +194,5 @@ print("""
   §4.6.4 no longer delivers the exact effective Hamiltonian.  The full
   300-dim symbolic diagonalization is now the only practical route to
   the s-corrected t_eff expressions -- making this regime precisely
-  where vbt3 transitions from CONFIRMATORY to ESSENTIAL.
+  where symvb transitions from CONFIRMATORY to ESSENTIAL.
 """)

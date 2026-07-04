@@ -1,5 +1,5 @@
-sympy~=1.10.1
+sympy>=1.13
 setuptools>=61.0.0
-numpy~=1.22.3
-scipy~=1.7.3
-pytest~=7.1.1
+numpy>=1.24
+scipy>=1.10
+pytest

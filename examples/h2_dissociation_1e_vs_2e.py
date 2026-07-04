@@ -95,7 +95,7 @@ def h_1s(R, beta0=2.0):            # phenomenological resonance ~ overlap
     like the overlap times an energy scale beta0."""
     return -beta0 * S_1s(R)
 
-def K_1s(R):                       # chemist (aa|bb)  --  vbt3 K (direct Coulomb)
+def K_1s(R):                       # chemist (aa|bb)  --  symvb K (direct Coulomb)
     """Two-center direct Coulomb (aa|bb) between Slater 1s orbitals."""
     # 1/R * [1 - (1 + 11R/8 + 3R^2/4 + R^3/6) * exp(-2R)]
     poly = 1 + 11*R/8 + 3*R**2/4 + R**3/6
@@ -103,7 +103,7 @@ def K_1s(R):                       # chemist (aa|bb)  --  vbt3 K (direct Coulomb
     R = np.maximum(R, 1e-8)
     return (1.0 - poly * np.exp(-2*R)) / R
 
-def J_1s(R):                       # chemist (ab|ab) -- vbt3 J (exchange)
+def J_1s(R):                       # chemist (ab|ab) -- symvb J (exchange)
     """Two-center exchange (ab|ab).  Short, exponential decay."""
     # Standard textbook form for the 1s-1s exchange integral
     # J_ab = exp(-2R) [ 25/8 - 23R/4 - 3R^2 - R^3/3 ] + ... (simplified)

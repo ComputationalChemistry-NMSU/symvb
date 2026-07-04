@@ -30,7 +30,7 @@ import time
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
+from symvb import Molecule, SlaterDet, symmetry
 
 
 CACHE = '/tmp/benzene_ujk_matrices.pkl'

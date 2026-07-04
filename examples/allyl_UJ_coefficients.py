@@ -8,11 +8,12 @@ contract with the symbolic H linearly.
 """
 import os, sys
 import sympy as sp
-import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
+from symvb.huckel import solve
+from symvb.mo_projection import mo_determinant_in_ao
 
 m = Molecule(
     zero_ii=True, interacting_orbs=['ab', 'bc'],
@@ -29,46 +30,14 @@ H = sp.Matrix(H1 + H2)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H = H.subs({s: 0, h: -1})
 
-# Build |Psi_Huckel> in the 9-dim basis symbolically
-# Use the canonical-basis Huckel expansion and vbt3 conversion signs.
-def canon_idx(ds):
-    out = []
-    for c in ds:
-        orb = 'abc'.index(c.lower())
-        spin = 0 if c.islower() else 1
-        out.append(2*orb + spin)
-    return out
-def vbt3_sign(ds):
-    idx = canon_idx(ds); inv = 0; n = len(idx)
-    for i in range(n):
-        for j in range(i+1, n):
-            if idx[i] > idx[j]: inv += 1
-    return (-1)**inv
-def sm_to_canon(alpha_occ, beta_occ):
-    idx = [2*'abc'.index(x) for x in alpha_occ] + \
-          [2*'abc'.index(x)+1 for x in beta_occ]
-    inv = 0; n = len(idx)
-    for i in range(n):
-        for j in range(i+1, n):
-            if idx[i] > idx[j]: inv += 1
-    return (-1)**inv
-
-# Huckel MOs (symbolic)
-# psi_1 = (1/2) a + (sqrt(2)/2) b + (1/2) c
-# psi_2 = (1/sqrt(2)) a + 0 b + (-1/sqrt(2)) c
+# Build |Psi_Huckel> = |psi_1^2 psi_2^2> in the 9-det AO basis. mo_determinant_in_ao
+# expands the closed-shell MO determinant (doubly-occupied MOs 0 and 1 of the
+# 3-chain Huckel solution) into AO determinants with the correct fermion signs.
 r2 = sp.sqrt(2)
-C1 = {'a': sp.Rational(1, 2), 'b': r2/2, 'c': sp.Rational(1, 2)}
-C2 = {'a': 1/r2, 'b': sp.Integer(0), 'c': -1/r2}
-
-psi_H = sp.zeros(9, 1)
-for i, ds in enumerate(det_strings):
-    a_occ = sorted([c for c in ds if c.islower()])
-    b_occ = sorted([c.lower() for c in ds if c.isupper()])
-    p1, p2 = a_occ; q1, q2 = b_occ
-    a_det = C1[p1]*C2[p2] - C1[p2]*C2[p1]
-    b_det = C1[q1]*C2[q2] - C1[q2]*C2[q1]
-    sign_sm = sm_to_canon(a_occ, b_occ)
-    psi_H[i, 0] = sp.simplify(vbt3_sign(ds) * sign_sm * a_det * b_det)
+hr = solve(sp.Matrix([[0, 1, 0], [1, 0, 1], [0, 1, 0]]), site_labels='abc')
+psi_H = mo_determinant_in_ao(hr.coefficients, ([0, 1], [0, 1]),
+                             det_strings, site_labels='abc')
+psi_H = psi_H / sp.sqrt((psi_H.T * psi_H)[0, 0])   # normalise to <Psi_H|Psi_H> = 1
 
 # Sanity: norm
 norm2 = sp.simplify((psi_H.T * psi_H)[0, 0])

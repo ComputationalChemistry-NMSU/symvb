@@ -19,7 +19,6 @@ reorganises its spin-pairing across the crossing.
 """
 import os
 import sys
-import time
 
 import numpy as np
 import sympy as sp
@@ -28,9 +27,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import FixedPsi, Molecule
-from vbt3.fixed_psi import generate_dets
-from vbt3.spin import s_squared_matrix, project_onto_S
+from symvb import FixedPsi, Molecule, hamiltonian, structure_vector
+from symvb.fixed_psi import generate_dets
+from symvb.spin import s_squared_matrix
 
 
 # ------------------------------------------------------------------------
@@ -45,9 +44,8 @@ m = Molecule(
 )
 P = generate_dets(2, 2, 3)
 det_strings = [p.dets[0].det_string for p in P]
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
-H_det = sp.Matrix(H1 + H2)
+H_det, _ = hamiltonian(m, P)
+H_det = sp.Matrix(H_det)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_det_s0 = H_det.subs({s: 0, h: -1})
 H_det_fn = sp.lambdify((U, J, K, M), H_det_s0, 'numpy')
@@ -60,42 +58,23 @@ S2_9 = s_squared_matrix(det_strings, orbs='abc')
 #    Triplet long-bond structure:  T_ac = triplet-HL(a,c) * b^2,
 #    lives in sigma = -1 (Ms = 0 triplet).
 # ------------------------------------------------------------------------
-ds_to_idx = {d: i for i, d in enumerate(det_strings)}
-
-def to_standard(det_string):
-    orbs = 'abcdefghij'
-    so_list = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in det_string]
-    alphas = sorted(c for c in det_string if c.islower())
-    betas  = sorted(c for c in det_string if c.isupper())
-    std = ''
-    na, nb = len(alphas), len(betas)
-    for i in range(min(na, nb)):
-        std += alphas[i] + betas[i]
-    std += ''.join(alphas[nb:]) + ''.join(betas[na:])
-    std_so = [2 * orbs.index(c.lower()) + (0 if c.islower() else 1) for c in std]
-    def inv(lst):
-        return sum(1 for i in range(len(lst)) for j in range(i+1, len(lst)) if lst[i] > lst[j])
-    return std, (1 if abs(inv(so_list) - inv(std_so)) % 2 == 0 else -1)
-
-def vec(coefs):
-    v = np.zeros(9)
-    for ds, c in coefs:
-        std, sgn = to_standard(ds)
-        v[ds_to_idx[std]] += sgn * c
+def sv(fp):
+    """Normalised expansion of a VB structure over the 9-det basis."""
+    v = np.array(structure_vector(fp, det_strings), float).ravel()
     return v / np.linalg.norm(v)
 
-# Singlet HL-type VB structures (same as the main script)
-vhat_ab = vec([('aBcC', 1), ('bAcC', 1)])
-vhat_bc = vec([('aAbC', 1), ('aAcB', 1)])
-vhat_ac = vec([('abBC', 1), ('cbBA', 1)])
+# Singlet HL-type covalent structures (same as allyl_long_bond_vb.py)
+vhat_ab = sv(FixedPsi('aBcC', coupled_pairs=[(0, 1)]))
+vhat_bc = sv(FixedPsi('aAbC', coupled_pairs=[(2, 3)]))
+vhat_ac = sv(FixedPsi('abBC', coupled_pairs=[(0, 3)]))
 
-# Triplet long-bond structure: T_ac_{Ms=0} * b^2
-# HL-triplet on (a,c) m_s=0  =  (a_alpha c_beta + a_beta c_alpha)/sqrt(2)
-# Multiplied by b^2 = b_alpha b_beta it populates the SAME two dets as
-# Phi_ac (singlet), but with opposite relative sign.
-vhat_Tac = vec([('abBC', 1), ('cbBA', -1)])
-# (also a_alpha c_alpha * b^2 and a_beta c_beta * b^2 at Ms=+/-1; we only
-# need the Ms=0 component since Sz_total = 0 for the 2-2 case here.)
+# Triplet long-bond structure T_ac = (HL-triplet on a,c) * b^2. HL-triplet Ms=0
+# is (a_alpha c_beta + a_beta c_alpha)/sqrt(2); times b^2 it populates the SAME
+# two dets as the singlet Phi_ac but with opposite relative sign, so build it
+# from the two determinant vectors directly.
+_d = lambda d: np.array(structure_vector(FixedPsi(d), det_strings), float).ravel()
+_vT = _d('abBC') - _d('cbBA')
+vhat_Tac = _vT / np.linalg.norm(_vT)
 
 
 # ------------------------------------------------------------------------
@@ -229,6 +208,7 @@ ax[2].set_ylim(0, 1.05)
 plt.tight_layout()
 outpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       '..', 'figures', 'fig_allyl_st_crossing_vb.png')
+os.makedirs(os.path.dirname(outpath), exist_ok=True)
 plt.savefig(outpath, dpi=140)
 plt.close()
 print(f"\nFigure saved: {outpath}")

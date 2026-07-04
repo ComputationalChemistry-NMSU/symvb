@@ -1,0 +1,25 @@
+# Python bytecode caches, regenerated on every run
+__pycache__/
+*.pyc
+
+# Local virtual environment (uv/venv), machine-specific
+.venv/
+
+# Packaging metadata written by pip/setuptools during editable installs
+symvb.egg-info/
+
+# setuptools build artifacts (stale vbt3-era eggs; tracked copies pending deletion)
+build/
+dist/
+
+# Generated figure output (examples/make_figures.py writes PNGs here; canonical figures live in ../vbt-3/figures/)
+figures/
+
+# Jupyter autosave checkpoints
+.ipynb_checkpoints/
+
+# Editor / assistant local artifacts (never publish)
+.local_history
+.sediment/
+.idea/
+.pytest_cache/

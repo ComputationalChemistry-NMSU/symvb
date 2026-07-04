@@ -20,6 +20,8 @@ For each we compute H_2e symbolically at U = J = 1, K = M = 0, and
 compare against C(N,2) * S symbolically.  If the identity survives
 s != 0, every entry of  [H_2e - C(N,2) S]  is identically zero as
 a polynomial in s; otherwise we get the explicit residual.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/uj_identity_overlap.py
 """
 import os
 import sys
@@ -29,8 +31,8 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule
+from symvb.fixed_psi import generate_dets
 
 
 def test(Na, Nb, Norb, pairs, label):
@@ -130,9 +132,9 @@ print("""
   is therefore on firmer footing than one might assume: not a cautionary
   caveat but a direct operator-level observation backed by the test here.
 
-  This is a genuinely ESSENTIAL-use result of vbt3.  The s-expansion of
+  This is a genuinely ESSENTIAL-use result of symvb.  The s-expansion of
   Slater-Condon matrix elements on a non-orthogonal basis for a 9-det
   (allyl) or larger system has enough combinatorial structure that hand
-  derivation is impractical; vbt3 exposes the exact s-polynomials
+  derivation is impractical; symvb exposes the exact s-polynomials
   directly and settles the question symbolically.
 """)

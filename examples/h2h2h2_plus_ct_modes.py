@@ -46,6 +46,8 @@ This script shows how the two CT coordinates emerge systematically.  Recipe:
 
 All derivations below are symbolic (sympy); formulas are verified numerically
 by diagonalizing the 3 x 3 electronic Hamiltonian on a grid in (Q_e, Q_m).
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h2h2h2_plus_ct_modes.py
 """
 import os
 import sys

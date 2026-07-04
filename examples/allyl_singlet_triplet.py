@@ -7,7 +7,7 @@
     it is the closed-shell triplet configuration psi_1 psi_2^2 psi_3
     with the two open-shell electrons coupled to Ms=0 triplet.
 """
-import os, sys, time
+import os, sys
 import numpy as np
 import sympy as sp
 import matplotlib
@@ -15,9 +15,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
-from vbt3.spin import s_squared_matrix
+from symvb import Molecule, SlaterDet, symmetry, hamiltonian
+from symvb.fixed_psi import generate_dets
+from symvb.spin import s_squared_matrix
 
 # Build A_1 block
 m = Molecule(
@@ -29,12 +29,14 @@ m = Molecule(
 )
 P = generate_dets(2, 2, 3)
 det_strings = [p.dets[0].det_string for p in P]
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
-H_full = sp.Matrix(H1 + H2)
+H_full, _ = hamiltonian(m, P)
+H_full = sp.Matrix(H_full)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_s0 = H_full.subs({s: 0, h: -1})
 
+# Symbolic +1-eigenspace of the a<->c reflection (the A_1 / sigma=+1 block),
+# built by hand so H_red stays symbolic for lambdify below;
+# symmetry.signed_totally_symmetric_basis returns a numeric basis instead.
 def canon(ds):
     fp = SlaterDet(ds).get_sorted()
     return fp.dets[0].det_string, fp.coefs[0]
@@ -143,6 +145,7 @@ ax.grid(alpha=0.3)
 plt.tight_layout()
 _out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     '..', 'figures', 'allyl_singlet_triplet.png')
+os.makedirs(os.path.dirname(_out), exist_ok=True)
 plt.savefig(_out, dpi=130, bbox_inches='tight')
 print(f'saved {_out}')
 

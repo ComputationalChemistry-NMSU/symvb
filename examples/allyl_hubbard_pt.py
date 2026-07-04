@@ -19,13 +19,12 @@ Key differences from benzene:
 """
 import os
 import sys
-import time
 
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, SlaterDet, symmetry, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 # ---------------------------------------------------------------------------
@@ -45,11 +44,9 @@ print(f"Basis ({len(P)} determinants):")
 for d in det_strings:
     print(f"  |{d}|")
 
-H1 = m.build_matrix(P, op='H')
-S  = m.build_matrix(P, op='S')
-H2 = m.o2_matrix(P)
-H  = sp.Matrix(H1 + H2)
-S_mat = sp.Matrix(S)
+H_raw, S_raw = hamiltonian(m, P)
+H  = sp.Matrix(H_raw)
+S_mat = sp.Matrix(S_raw)
 
 h, s, U = sp.symbols('h s U')
 H_s0 = H.subs({s: 0, h: -1})
@@ -59,6 +56,8 @@ assert S_mat.subs({s: 0}) == sp.eye(9), "S at s=0 should be identity"
 # ---------------------------------------------------------------------------
 # 2. Project to the sigma = +1 subspace (reflection a <-> c)
 # ---------------------------------------------------------------------------
+# Built symbolically here (exact over Q[sqrt(2)]) so the RS series below is
+# exact; symmetry.signed_totally_symmetric_basis returns a numeric basis.
 def canon(ds):
     fp = SlaterDet(ds).get_sorted()
     return fp.dets[0].det_string, fp.coefs[0]
@@ -179,7 +178,7 @@ print(f"  Huckel densities (alpha+beta per site): "
 E1_decoded = sum((rho / 2) ** 2 for rho in densities)
 E1_decoded = sp.simplify(E1_decoded)
 print(f"  E_1 = sum_k (rho_k / 2)^2 = {E1_decoded}")
-print(f"  vbt3 PT result:             {E_coef[1]}")
+print(f"  symvb PT result:             {E_coef[1]}")
 print(f"  Match: {E1_decoded == E_coef[1]}")
 
 

@@ -10,7 +10,7 @@ perturbation parameters:
     K = (aa|bb)          two-center direct Coulomb   (pattern 1122)
     M = (aa|ab), etc.    three-index, dropped (ZDO)  (pattern 1112 + perms)
 
-(The symbol names follow vbt3's integral-pattern convention; in MO
+(The symbol names follow symvb's integral-pattern convention; in MO
 language our J is exchange and our K is direct Coulomb.)
 
 Matrices are cached in /tmp/benzene_ujk_matrices.pkl -- if the cache
@@ -27,6 +27,8 @@ The (U - J) combination acts as an effective single parameter, with
 the K channel mixing into it through the cross term.  The quadratic
 form in (U - J, K) is negative-definite -- second-order correlation
 stabilises the ground state for all real (U, J, K).
+
+Run from the repo root:  PYTHONPATH=. python3 examples/benzene_hubbard_ujk.py
 """
 import os
 import pickle
@@ -36,7 +38,7 @@ import time
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
+from symvb import Molecule, SlaterDet, symmetry
 
 
 CACHE = '/tmp/benzene_ujk_matrices.pkl'

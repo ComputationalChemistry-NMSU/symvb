@@ -9,9 +9,9 @@ The series
 
 is derived symbolically end-to-end:
 
-  1.  vbt3 builds the 400x400 symbolic H_1e, H_2e, and S over the full
+  1.  symvb builds the 400x400 symbolic H_1e, H_2e, and S over the full
       Sz=0 determinantal basis.
-  2.  vbt3.symmetry projects to the 38-dimensional D_6 A_1g block
+  2.  symvb.symmetry projects to the 38-dimensional D_6 A_1g block
       that carries the ground state.
   3.  The 38x38 matrix has integer eigenvalues at U=0; sympy.solve gives
       them exactly.
@@ -22,6 +22,8 @@ is derived symbolically end-to-end:
 
 The physical meaning of the E_2 = -29/288 denominator is unpacked inline
 (it's the MP2 formula evaluated on the 6-site half-filled Hubbard ring).
+
+Run from the repo root:  PYTHONPATH=. python3 examples/benzene_hubbard_pt.py
 """
 import os
 import sys
@@ -34,45 +36,17 @@ import sympy as sp
 # Allow running directly from the examples/ subdirectory without installing.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from vbt3 import Molecule, SlaterDet, symmetry
+from symvb import Molecule, SlaterDet, symmetry
 
 
 # --- 1. build H_1e, S, H_2e once and cache -------------------------------
+# Molecule.ring(6) is exactly the benzene pi ring: nearest-neighbour edges
+# ab,bc,cd,de,ef,af with resonance h, overlap s, and on-site Hubbard U
+# (max_2e_centers=1).  The cache stays the separate (H1, S, H2) triple that
+# the other benzene examples and the teaching notebooks consume.
 CACHE = '/tmp/benzene_hubbard_matrices.pkl'
 
-def build_or_load():
-    if os.path.exists(CACHE):
-        with open(CACHE, 'rb') as f:
-            return pickle.load(f)
-    m = Molecule(
-        zero_ii=True,
-        interacting_orbs=['ab', 'bc', 'cd', 'de', 'ef', 'af'],
-        subst={'h': ('H_ab', 'H_bc', 'H_cd', 'H_de', 'H_ef', 'H_af'),
-               's': ('S_ab', 'S_bc', 'S_cd', 'S_de', 'S_ef', 'S_af')},
-        subst_2e={'U': ('1111',)},
-        max_2e_centers=1,
-    )
-    m.generate_basis(3, 3, 6)
-    print("Building 400x400 symbolic H, S, H2 (one-time, several minutes) ...")
-    t0 = time.time()
-    H1 = m.build_matrix(m.basis, op='H')
-    S  = m.build_matrix(m.basis, op='S')
-    H2 = m.o2_matrix(m.basis)
-    print(f"  done in {time.time() - t0:.1f}s")
-    data = (m, H1, S, H2)
-    with open(CACHE, 'wb') as f:
-        pickle.dump((H1, S, H2), f)
-    return data if isinstance(data, tuple) and len(data) == 4 else (m, H1, S, H2)
-
-
-m = Molecule(
-    zero_ii=True,
-    interacting_orbs=['ab', 'bc', 'cd', 'de', 'ef', 'af'],
-    subst={'h': ('H_ab', 'H_bc', 'H_cd', 'H_de', 'H_ef', 'H_af'),
-           's': ('S_ab', 'S_bc', 'S_cd', 'S_de', 'S_ef', 'S_af')},
-    subst_2e={'U': ('1111',)},
-    max_2e_centers=1,
-)
+m = Molecule.ring(6)
 m.generate_basis(3, 3, 6)
 
 if os.path.exists(CACHE):
@@ -231,7 +205,7 @@ E2_decoded = S_mp2 / N_sites ** 2
 print(f"  # momentum-conserving (i_up, j_dn -> a_up, b_dn) quadruples: {count}")
 print(f"  sum of 1/Delta_eps                                        : {S_mp2}")
 print(f"  E_2 / U^2  = sum / N_sites^2 = {S_mp2} / {N_sites**2} = {E2_decoded}")
-print(f"  Matches vbt3 PT:  {E2_decoded == E2}")
+print(f"  Matches symvb PT:  {E2_decoded == E2}")
 
 # The full interpretation:
 #   288 = 6^2 * 8

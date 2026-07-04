@@ -13,8 +13,10 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule, SlaterDet, symmetry
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, hamiltonian
+from symvb.fixed_psi import generate_dets
+from symvb.huckel import solve
+from symvb.mo_projection import mo_determinant_in_ao
 
 m = Molecule(
     zero_ii=True, interacting_orbs=['ab', 'bc'],
@@ -25,9 +27,8 @@ m = Molecule(
 )
 P = generate_dets(2, 2, 3)
 det_strings = [p.dets[0].det_string for p in P]
-H1 = m.build_matrix(P, op='H')
-H2 = m.o2_matrix(P)
-H_full = sp.Matrix(H1 + H2)
+H_full, _ = hamiltonian(m, P)
+H_full = sp.Matrix(H_full)
 h, s, U, J, K, M = sp.symbols('h s U J K M')
 H_full = H_full.subs({s: 0, h: -1, K: 0, M: 0})
 Hline_fn = sp.lambdify((U, J), H_full, 'numpy')
@@ -64,70 +65,20 @@ for Uv, E in zip(Us, E_gs):
 # Second test: project the GS vector onto the Huckel det expansion
 # using the explicit Huckel vector computed the right way.
 
-# First compute Huckel vector by building psi_Huckel directly from
-# the MO eigenvectors of the 1-electron H (more robust than the symbolic expansion):
-h1_1e = np.array([[0, -1, 0], [-1, 0, -1], [0, -1, 0]], dtype=float)  # h=-1, s=0
-mo_E, C_mo = np.linalg.eigh(h1_1e)  # MOs of 1-e H
-# psi_1 = lowest energy (bonding), psi_2 = middle (nonbonding)
-idx = np.argsort(mo_E)
-C_mo = C_mo[:, idx]
+# Build |psi_Huckel> = |psi_1^2 psi_2^2> in the 9-det AO basis. mo_determinant_in_ao
+# expands the closed-shell MO determinant (doubly-occupied MOs 0, 1 of the 3-chain
+# Huckel solution) into AO determinants with the correct fermion signs; normalise it.
+hr = solve(sp.Matrix([[0, 1, 0], [1, 0, 1], [0, 1, 0]]), site_labels='abc')
+psi_symvb = np.array(mo_determinant_in_ao(
+    hr.coefficients, ([0, 1], [0, 1]), det_strings, site_labels='abc'),
+    dtype=float).ravel()
+psi_symvb = psi_symvb / np.linalg.norm(psi_symvb)
 
-# Expand |psi_1 alpha> |psi_1 beta> |psi_2 alpha> |psi_2 beta> in the 9-det vbt3 basis.
-# For each det D with alpha-occ = {p_1, p_2} (sorted), beta-occ = {q_1, q_2} (sorted):
-# coefficient in canonical (orbital-interleaved) basis is:
-#   det([C_1(p_1), C_1(p_2); C_2(p_1), C_2(p_2)]) * det([C_1(q_1), C_1(q_2); C_2(q_1), C_2(q_2)])
-# times the sign of the permutation from spin-major to canonical order.
-
-def canon_idx(ds):
-    out = []
-    for c in ds:
-        orb = 'abc'.index(c.lower())
-        spin = 0 if c.islower() else 1
-        out.append(2*orb + spin)
-    return out
-
-def vbt3_sign(ds):
-    idx = canon_idx(ds); inv = 0; n = len(idx)
-    for i in range(n):
-        for j in range(i+1, n):
-            if idx[i] > idx[j]: inv += 1
-    return (-1)**inv
-
-def sm_to_canonical_sign(alpha_occ, beta_occ):
-    """Sign to go from c†_{p_1 α} c†_{p_2 α} c†_{q_1 β} c†_{q_2 β}|0>
-    (α sorted, β sorted) to the canonical orbital-interleaved ordering."""
-    # slot indices in spin-major order:
-    idx_sm = [2*'abc'.index(x) for x in alpha_occ] + \
-             [2*'abc'.index(x)+1 for x in beta_occ]
-    # inversion count
-    inv = 0
-    n = len(idx_sm)
-    for i in range(n):
-        for j in range(i+1, n):
-            if idx_sm[i] > idx_sm[j]: inv += 1
-    return (-1)**inv
-
-psi_vbt3 = np.zeros(9)
-for i, ds in enumerate(det_strings):
-    alpha_occ = sorted([c for c in ds if c.islower()])
-    beta_occ  = sorted([c.lower() for c in ds if c.isupper()])
-    p1, p2 = alpha_occ
-    q1, q2 = beta_occ
-    p1i, p2i = 'abc'.index(p1), 'abc'.index(p2)
-    q1i, q2i = 'abc'.index(q1), 'abc'.index(q2)
-    # 2x2 MO coef matrix [mu=1, mu=2] for (p_1, p_2)
-    alpha_det = C_mo[p1i, 0]*C_mo[p2i, 1] - C_mo[p2i, 0]*C_mo[p1i, 1]
-    beta_det  = C_mo[q1i, 0]*C_mo[q2i, 1] - C_mo[q2i, 0]*C_mo[q1i, 1]
-    sign_sm = sm_to_canonical_sign(alpha_occ, beta_occ)
-    coef_canon = sign_sm * alpha_det * beta_det
-    # to vbt3 basis
-    psi_vbt3[i] = vbt3_sign(ds) * coef_canon
-
-print(f"\n  |psi_Huckel| = {np.linalg.norm(psi_vbt3):.6f} (should be 1)")
+print(f"\n  |psi_Huckel| = {np.linalg.norm(psi_symvb):.6f} (should be 1)")
 
 # Check at U=0
 Hn = np.array(Hline_fn(0, 0), dtype=float); Hn = 0.5*(Hn+Hn.T)
-E_expect = psi_vbt3 @ Hn @ psi_vbt3
+E_expect = psi_symvb @ Hn @ psi_symvb
 print(f"  <psi_Huckel|H_0|psi_Huckel> = {E_expect:.6f}  "
       f"(should be -2*sqrt(2) = {-2*np.sqrt(2):.6f})")
 
@@ -138,5 +89,5 @@ for Uv in [0, 0.5, 1, 2, 4, 8, 16]:
     Hn = np.array(Hline_fn(Uv, Uv), dtype=float); Hn = 0.5*(Hn+Hn.T)
     ev, vec = np.linalg.eigh(Hn)
     c_gs = vec[:, 0]
-    ovlp = psi_vbt3 @ c_gs
+    ovlp = psi_symvb @ c_gs
     print(f"  {Uv:>5.1f}  {ovlp:>12.8f}  {ovlp**2:>14.10f}")

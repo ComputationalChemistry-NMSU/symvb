@@ -36,6 +36,8 @@ Analytic expectation at the projection level:
 FCI captures (on top of this) the coupling to sigma* (antibonding) orbitals,
 which is of order (t / 2)^2 / (2|h|) per site, and full correlation within
 each H2 when U > 0.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h2h2h2_plus_diabatic.py
 """
 import os
 import pickle
@@ -46,8 +48,8 @@ import numpy as np
 import sympy as sp
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from vbt3 import Molecule
-from vbt3.fixed_psi import generate_dets
+from symvb import Molecule, hamiltonian
+from symvb.fixed_psi import generate_dets
 
 
 # ------------------------------------------------------------------------
@@ -80,14 +82,12 @@ else:
     print(f"  Basis size: {Ndet}")
 
     t0 = time.time()
-    H1 = m.build_matrix(P, op='H')
-    H2 = m.o2_matrix(P)
-    S  = m.build_matrix(P, op='S')
+    H_raw, S_raw = hamiltonian(m, P)   # 2e block folded into H_raw
     print(f"  Symbolic build: {time.time() - t0:.1f}s")
 
     h_sym, t_sym, U_sym, s_sym, sg_sym = sp.symbols('h t U s sg')
-    H_sym = sp.Matrix(H1 + H2).subs({s_sym: 0, sg_sym: 0, h_sym: -1})
-    S_sym = sp.Matrix(S).subs({s_sym: 0, sg_sym: 0})
+    H_sym = H_raw.subs({s_sym: 0, sg_sym: 0, h_sym: -1})
+    S_sym = S_raw.subs({s_sym: 0, sg_sym: 0})
     assert S_sym == sp.eye(Ndet), "AOs not orthonormal in the det basis"
 
     # Decompose H = H_00 + t * H_t + U * H_U  (H is linear in t, U after h = -1)
@@ -123,7 +123,7 @@ ORBS = 'abcdef'
 
 
 def to_standard(det_string):
-    """vbt3-canonical form: pair alpha_i with beta_i alphabetically, leftover at end."""
+    """symvb-canonical form: pair alpha_i with beta_i alphabetically, leftover at end."""
     so_list = [2 * ORBS.index(c.lower()) + (0 if c.islower() else 1)
                for c in det_string]
     if len(set(so_list)) != len(so_list):

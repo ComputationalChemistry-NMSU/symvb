@@ -49,7 +49,7 @@ def L4_series(n_max=6):
 # L = 5  via RSPT in the 12-dim A_1 block (mpmath + PSLQ)
 # ---------------------------------------------------------------------------
 def L5_series(n_max=6, dps=200):
-    from vbt3 import Molecule, SlaterDet, symmetry
+    from symvb import Molecule, SlaterDet, symmetry
 
     orbs = list('abcde')
     edges = [''.join(sorted(orbs[i] + orbs[(i + 1) % 5])) for i in range(5)]

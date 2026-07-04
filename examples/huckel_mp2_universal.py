@@ -21,12 +21,15 @@ in front is (1/L)^2 squared momentum-conserving contractions.
 Spin structure: on-site Hubbard couples only alpha-beta, so each quadruple
 appears exactly once (not twice), and same-spin MP2 contributions vanish.
 
-The script evaluates the sum symbolically for L in {4, 5, 6, 7, 8, 10}
+The script evaluates the sum symbolically for L in {4, 5, 6, 7, 8, 10, 12}
 at N = 6, reproducing the three cases treated in the manuscript and
-extrapolating to larger rings.
+extrapolating to larger rings (L = 16..100, numeric only).
+
+Run from the repo root: PYTHONPATH=. python3 examples/huckel_mp2_universal.py
+(L = 7 costs ~50 s in the closed-form loop: the sum over cos(2 pi k / 7) does
+not collapse to a small radical field. The large-L dense-limit loop is numeric.)
 """
 import sympy as sp
-from math import floor
 
 
 def huckel_occ_vir(L, N):
@@ -75,7 +78,11 @@ def mp2_sum(L, N, simplify=True):
         # fall back to simplify for L = 6 integer case
         total = sp.simplify(total)
     c2 = total / sp.Integer(L) ** 2
-    c2 = sp.simplify(c2)
+    if simplify:
+        # only the closed-form (simplify=True) callers need the tidy expression;
+        # the numeric dense-limit callers read float(sp.N(c2)), which is invariant
+        # under simplification, so skip this step -- it dominates the large-L cost.
+        c2 = sp.simplify(c2)
     return c2, count
 
 
@@ -94,7 +101,7 @@ def main():
             continue
         print(f'{L:>3} {6:>3} {cnt:>8}   {str(c2):>30}   {float(c2):>+14.10f}')
 
-    print('\nCross-check against earlier vbt3 FCI PT extraction:')
+    print('\nCross-check against earlier symvb FCI PT extraction:')
     print(f'  L = 4:  expected -5/128          got {float(mp2_sum(4,6)[0]):+.10f}')
     print(f'  L = 5:  expected 3(1-sqrt(5))/50 got {float(mp2_sum(5,6)[0]):+.10f}')
     print(f'  L = 6:  expected -29/288         got {float(mp2_sum(6,6)[0]):+.10f}')

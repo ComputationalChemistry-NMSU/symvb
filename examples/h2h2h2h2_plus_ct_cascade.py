@@ -12,10 +12,12 @@ thresholds |t_c|.  The softest mode is the B_2 Peierls-dimerization mode --
 the n=4 generalization of the n=3 end-to-end Q_e.
 
 All derivations are analytical (numpy linear algebra on the exact 4x4
-Bloch spectrum of T).  The full 3920-dim vbt3 FCI verification would
+Bloch spectrum of T).  The full 3920-dim symvb FCI verification would
 reproduce eps_I = h_I + 2*sum_{J!=I} h_J + 3U/2 and t_eff^{I,I+1} = -t/2
 with zero elements for all non-nearest-neighbour pairs; it is deferred
 because the symbolic build cost for 8 orbitals, 7 electrons is ~15-20 min.
+
+Run from the repo root:  PYTHONPATH=. python3 examples/h2h2h2h2_plus_ct_cascade.py
 """
 import os
 import sys
@@ -264,13 +266,13 @@ print("     longer chain approaching the Peierls infinite-chain limit).")
 
 
 # =====================================================================
-# 8. vbt3 FCI verification (deferred -- compute cost)
+# 8. symvb FCI verification (deferred -- compute cost)
 # =====================================================================
 print("\n" + "=" * 72)
-print("vbt3 FCI verification (deferred)")
+print("symvb FCI verification (deferred)")
 print("=" * 72)
 print(f"""
-  The analytical structure above predicts the vbt3 effective Hamiltonian
+  The analytical structure above predicts the symvb effective Hamiltonian
   H_eff^{{IJ}} = <Phi_I|H|Phi_J> on the 4 sigma-hole diabatics as
       eps_I       = h_I + 2 sum_{{J != I}} h_J + 3U/2
       t_eff^{{I,I+1}} = -t_{{I,I+1}}/2
