@@ -1,19 +1,21 @@
 """Figure generation for manuscript_v2.md (Symbolic Valence Bond Theory
 for Chemists: The symvb Package).
 
-Manuscript display items produced HERE:
+Manuscript display items produced HERE (file names follow the manuscript
+labels since the 2026-07-08 figures/ reorganization):
   scheme1_pipeline.{pdf,png}   Scheme 1   (scheme_1_pipeline)
-  fig3_h2.{pdf,png}            Figure 1   (figure_1_h2)
-  fig6_disphenoid.{pdf,png}    Figure 3   (figure_6_disphenoid)
-  fig7_aromaticity.{pdf,png}   Figure 5   (figure_5_aromaticity)
+  fig1_h2.{pdf,png}            Figure 1   (figure_1_h2)
+  fig3_disphenoid.{pdf,png}    Figure 3   (figure_3_disphenoid)
+  fig5_aromaticity.{pdf,png}   Figure 5   (figure_5_aromaticity)
+  toc_graphic.{pdf,png}        TOC graphic (toc_graphic)
 
 Produced ELSEWHERE:
-  fig5_allyl_long_bond         Figure 2   (examples/allyl_long_bond_vb.py)
-  fig_benzene_ionicity         Figure 4   (examples/make_fig_benzene_ionicity.py)
+  fig2_allyl_long_bond         Figure 2   (examples/allyl_long_bond_vb.py)
+  fig4_benzene_ionicity        Figure 4   (examples/make_fig_benzene_ionicity.py)
 
-Legacy outputs not used by manuscript_v2 (kept for the archived v1):
-  fig4_allyl, fig1_degeneracy, fig2_pade, scheme2_systems, scheme3_rumer,
-  toc_graphic.
+Legacy outputs not used by manuscript_v2 (kept for the archived v1) write
+to figures/archive/: fig4_allyl, fig1_degeneracy, fig2_pade,
+scheme1a_object_model, scheme2_systems, scheme3_rumer.
 
 Output dir: ../../vbt-3/figures/. Figures 2-5 are drawn at final journal
 dimensions with 7-9 pt fonts per manuscript_style_guide.md section 9.
@@ -33,6 +35,9 @@ from symvb.fixed_psi import generate_dets
 OUTDIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', '..', 'vbt-3', 'figures')
 os.makedirs(OUTDIR, exist_ok=True)
+# legacy display items (archived manuscript v1) live one level down
+ARCHIVE_DIR = os.path.join(OUTDIR, 'archive')
+os.makedirs(ARCHIVE_DIR, exist_ok=True)
 # fonttype 42 = embed TrueType so PDF text stays editable text (not Type-3
 # outlines) in Illustrator/Inkscape; the matplotlib default (Type 3) is not.
 plt.rcParams.update({'font.size': 11, 'figure.dpi': 150,
@@ -73,6 +78,14 @@ def figure_1_h2():
 
     plt.rcParams.update({'font.size': 8, 'xtick.labelsize': 7, 'ytick.labelsize': 7, 'legend.fontsize': 7})
     fig, ax = plt.subplots(1, 3, figsize=(7.0, 2.4))
+    # bold standalone panel letters + Title-Case centred titles (user layout,
+    # matched to the 2026-07-08 touch-up of fig1_h2)
+    for a, letter, title in zip(ax, 'ABC', ['Ground-State Energy',
+                                            'VB Character of the Bond',
+                                            'Singlet–Triplet Gap']):
+        a.set_title(title, fontsize=9)
+        a.text(-0.22, 1.02, letter, transform=a.transAxes, fontsize=10,
+               fontweight='bold', va='bottom', ha='left')
 
     ax[0].plot(U_vals, E_gs, 'k-', lw=1.6)
     ax[0].axhline(-2, ls=':', c='C0', lw=1)
@@ -85,19 +98,17 @@ def figure_1_h2():
                    color='C3', fontsize=7.5,
                    arrowprops=dict(arrowstyle='->', color='C3', lw=0.7))
     ax[0].set_xlabel(r'$U/t$'); ax[0].set_ylabel(r'$E_{\rm gs} / t$')
-    ax[0].set_title('(A)  ground-state energy')
     ax[0].grid(alpha=0.3)
 
     ax[1].plot(U_vals, w_cov, 'C0-', lw=1.6, label=r'$w_{\rm cov}$')
     ax[1].plot(U_vals, w_ion, 'C3-', lw=1.6, label=r'$w_{\rm ion}$')
     ax[1].axhline(0.5, ls=':', c='k', lw=0.8)
     ax[1].axvline(4, ls=':', c='k', lw=0.8)
-    ax[1].text(8.3, 0.6, 'Hückel 50/50', fontsize=7)
-    ax[1].text(4.3, 0.8, r'C–C $\pi \approx 4t$', fontsize=7)
-    ax[1].set_xlabel(r'$U/t$'); ax[1].set_ylabel('weight')
-    ax[1].set_title('(B)  VB character of the bond')
-    ax[1].text(15.5, 0.88, r'$w_{\rm cov}$', color='C0', fontsize=8)
-    ax[1].text(15.5, 0.07, r'$w_{\rm ion}$', color='C3', fontsize=8)
+    ax[1].text(19.6, 0.53, 'Hückel 50/50', fontsize=7.5, ha='right')
+    ax[1].text(3.6, 0.92, r'$4t$', fontsize=7.5, ha='right')
+    ax[1].set_xlabel(r'$U/t$'); ax[1].set_ylabel('Weight')
+    ax[1].text(16.8, 0.88, r'$w_{\rm cov}$', color='C0', fontsize=8)
+    ax[1].text(16.8, 0.085, r'$w_{\rm ion}$', color='C3', fontsize=8)
     ax[1].grid(alpha=0.3)
     ax[1].set_ylim(-0.05, 1.05)
 
@@ -105,24 +116,19 @@ def figure_1_h2():
     ax[2].plot(U_vals, gap_s25, 'C3-', lw=1.6, label=r'$s=0.25$')
     ax[2].plot(U_large, 4 / U_large, ls=':', c='C0', lw=1)
     ax[2].axhline(direct25, ls='--', c='C3', lw=0.9)
-    ax[2].annotate(r'$4t^2/U$', xy=(16, 4 / 16), xytext=(12.0, 0.72),
-                   color='C0', fontsize=7.5,
-                   arrowprops=dict(arrowstyle='->', color='C0', lw=0.7))
-    ax[2].annotate(r'$4ts/(1-s^4)$', xy=(17, direct25), xytext=(5.5, 1.72),
-                   color='C3', fontsize=7.5,
-                   arrowprops=dict(arrowstyle='->', color='C3', lw=0.7))
+    ax[2].text(6.3, 0.70, r'$4t^2/U$', color='C0', fontsize=7.5)
+    ax[2].text(4.6, 1.06, r'$4ts/(1-s^4)$', color='C3', fontsize=7.5)
     ax[2].set_xlabel(r'$U/t$'); ax[2].set_ylabel(r'$(E_{\rm T}-E_{\rm S}) / t$')
-    ax[2].set_title('(C)  singlet–triplet gap')
-    ax[2].text(16.3, 1.30, r'$s=0.25$', color='C3', fontsize=8)
-    ax[2].text(16.3, 0.46, r'$s=0$', color='C0', fontsize=8)
+    ax[2].text(19.5, 1.29, r'$s=0.25$', color='C3', fontsize=8, ha='right')
+    ax[2].text(19.5, 0.40, r'$s=0$', color='C0', fontsize=8, ha='right')
     ax[2].grid(alpha=0.3)
-    ax[2].set_ylim(0, 2.3)
+    ax[2].set_ylim(0, 2.2)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig3_h2.pdf'))
-    plt.savefig(os.path.join(OUTDIR, 'fig3_h2.png'), dpi=150)
+    plt.savefig(os.path.join(OUTDIR, 'fig1_h2.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig1_h2.png'), dpi=150)
     plt.close()
-    print('  fig3_h2.pdf')
+    print('  fig1_h2.pdf')
 
 
 # =======================================================================
@@ -216,7 +222,7 @@ def figure_2_allyl():
     ax[1].set_ylim(-3.5, 2)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig4_allyl.pdf'))
+    plt.savefig(os.path.join(ARCHIVE_DIR, 'fig4_allyl.pdf'))
     plt.close()
     print('  fig4_allyl.pdf')
 
@@ -254,7 +260,7 @@ def figure_3_degeneracy():
     ax.set_ylim(-5, max(degs) + 8)
     ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig1_degeneracy.pdf'))
+    plt.savefig(os.path.join(ARCHIVE_DIR, 'fig1_degeneracy.pdf'))
     plt.close()
     print('  fig1_degeneracy.pdf')
 
@@ -333,7 +339,7 @@ def figure_4_pade():
     ax[1].legend(fontsize=9); ax[1].grid(alpha=0.3, which='both')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig2_pade.pdf'))
+    plt.savefig(os.path.join(ARCHIVE_DIR, 'fig2_pade.pdf'))
     plt.close()
     print('  fig2_pade.pdf')
 
@@ -427,35 +433,45 @@ def figure_5_aromaticity():
     resp_fci = {U: -np.gradient(efci[U], lambdas) for U in U_LIST}
 
     plt.rcParams.update({'font.size': 8})
-    fig, ax = plt.subplots(1, 2, figsize=(5.0, 2.8))
+    # 7.0 in = ACS double-column width, so fonts print at their true pt sizes
+    fig, ax = plt.subplots(1, 2, figsize=(7.0, 2.85))
     cov_c, fci_c = '#c0504d', '#1a1a1a'
 
     # (A) energies: covalent-only sits well above FCI; the vertical gap is the
     #     covalent-ionic resonance energy. Inset: the covalent-only bump,
     #     E_cov(lambda) - E_cov(0), is absent at s=0 and grows with overlap s.
     axA = ax[0]
-    axA.plot(lambdas, E_fci, '-', color=fci_c, lw=1.8, label='FCI ($U=0$)')
-    axA.plot(lambdas, E_cov, '-', color=cov_c, lw=1.8, label='covalent-only')
+    axA.plot(lambdas, E_fci, '-', color=fci_c, lw=1.8)
+    axA.plot(lambdas, E_cov, '-', color=cov_c, lw=1.8)
     axA.set_xlabel(r'$\lambda = h_{ab}/h$')
-    axA.set_ylabel(r'energy / $|h|$')
-    axA.set_title('(A)  energies', fontsize=9)
+    axA.set_ylabel(r'Energy / $|h|$')
+    axA.set_title('Energies', fontsize=9)
+    axA.text(-0.22, 1.02, 'A', transform=axA.transAxes, fontsize=10,
+             fontweight='bold', va='bottom', ha='left')
     axA.invert_xaxis(); axA.grid(alpha=0.3)
-    axA.legend(fontsize=7, loc='center left', frameon=False)
-    axin = axA.inset_axes([0.52, 0.30, 0.45, 0.47])
+    # both curves labelled directly (no legend); the inset sits in the empty
+    # band between them
+    axA.text(0.97, -1.25, 'covalent-only', color=cov_c, fontsize=7.5,
+             ha='left', va='top')
+    axA.text(0.97, -5.55, 'FCI ($U=0$)', color=fci_c, fontsize=7.5,
+             ha='left', va='top')
+    axin = axA.inset_axes([0.26, 0.24, 0.52, 0.44])
     for sv, col in zip([0.0, 0.2, 0.4], ['#9a9a9a', '#5b9bd5', '#1f5fa8']):
         Ev = E_cov if sv == S_VAL else cov_solve(sv)[0]
         dE = Ev - Ev[-1]
         axin.plot(lambdas, dE, '-', color=col, lw=1.3)
-        if Ev.ptp() > 1e-9:
+        if np.ptp(Ev) > 1e-9:   # ndarray.ptp() method removed in NumPy 2.0
             axin.plot(lambdas[np.argmax(Ev)], dE.max(), 'o', color=col, ms=2.5)
     axin.axhline(0, color='0.6', lw=0.6); axin.invert_xaxis()
-    axin.set_xlim(0.62, 0.0); axin.set_ylim(-0.006, 0.030)
+    axin.set_xlim(0.62, 0.0); axin.set_ylim(-0.006, 0.033)
     axin.set_xticks([]); axin.set_yticks([])
-    axin.text(0.96, 0.93, 'covalent bump grows\nwith overlap $s$',
-              transform=axin.transAxes, fontsize=6.0, color='0.35',
-              ha='right', va='top', linespacing=1.1)
-    axin.text(0.52, 0.10, '$s=0$', transform=axin.transAxes, fontsize=6.0, color='0.5')
-    axin.text(0.05, 0.74, '0.4', transform=axin.transAxes, fontsize=6.0, color='#1f5fa8')
+    # the bump-vs-overlap explanation lives in the caption; every curve gets
+    # a direct label, each inside its own parabola (clear of all lines)
+    axin.text(0.60, 0.03, '$s=0$', transform=axin.transAxes, fontsize=6.0, color='0.5')
+    axin.text(0.52, 0.90, '0.4', transform=axin.transAxes, fontsize=6.0,
+              ha='center', color='#1f5fa8')
+    axin.text(0.52, 0.38, '0.2', transform=axin.transAxes, fontsize=6.0,
+              ha='center', color='#5b9bd5')
     for _spine in axin.spines.values():
         _spine.set_color('0.6'); _spine.set_linewidth(0.6)
     axin.patch.set_alpha(0.9)
@@ -474,23 +490,28 @@ def figure_5_aromaticity():
                      color=cov_c, alpha=0.13, zorder=0)
     axB.set_xlabel(r'$\lambda$')
     axB.set_ylabel(r'$-\,dE/d\lambda$  (bond order) / $|h|$', fontsize=7.5)
-    axB.set_title('(B)  response vs correlation $U$', fontsize=9)
+    axB.set_title('Response vs Correlation $U$', fontsize=9)
+    axB.text(-0.22, 1.02, 'B', transform=axB.transAxes, fontsize=10,
+             fontweight='bold', va='bottom', ha='left')
     axB.invert_xaxis(); axB.grid(alpha=0.3)
     axB.legend(fontsize=6.5, ncol=2, loc='upper right', frameon=False)
-    axB.text(0.17, -0.05, 'wrong sign\n($U\\gtrsim 8$, covalent)', fontsize=6.3,
-             color='0.25', ha='center', va='top')
+    axB.set_ylim(-0.18, 1.32)   # bottom: room for the note; top: legend rows
+                                # sit above the U=0 curve (text is invisible
+                                # to autoscale)
+    axB.text(0.22, -0.115, 'wrong sign', fontsize=6.3,
+             color='0.25', ha='center', va='center')
 
     fig.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig7_aromaticity.pdf'))
-    plt.savefig(os.path.join(OUTDIR, 'fig7_aromaticity.png'), dpi=450)
+    plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig5_aromaticity.png'), dpi=450)
     plt.close()
-    print('  fig7_aromaticity.pdf')
+    print('  fig5_aromaticity.pdf')
 
 
 # =======================================================================
 # Figure 6 - (H2)2+ disphenoid: pseudo-JT instability and III <-> II
 # =======================================================================
-def figure_6_disphenoid():
+def figure_3_disphenoid():
     # Build 3e and 4e disphenoid Hamiltonians once
     m = Molecule(
         zero_ii=True,
@@ -528,7 +549,7 @@ def figure_6_disphenoid():
     #    = lambda/4 at U = 0 and falls with U: correlation keeps the hole shared down to
     #    smaller |h_l| (longer distance), widening the Class III region.
     plt.rcParams.update({'font.size': 8})
-    fig, (axA, axB) = plt.subplots(1, 2, figsize=(8.6, 3.5))
+    fig, (axA, axB) = plt.subplots(1, 2, figsize=(7.0, 2.85))
 
     # --- Panel A: Marcus-Hush surfaces (pure analytic schematic) ---
     lam = 1.0
@@ -538,24 +559,29 @@ def figure_6_disphenoid():
     meanX = (eA + eB) / 2
     halfX = np.abs(eA - eB) / 2
     axA.plot(Xg, eA, '--', color='0.72', lw=0.9)
-    axA.plot(Xg, eB, '--', color='0.72', lw=0.9, label=r'diabats (fixed $\lambda$)')
+    axA.plot(Xg, eB, '--', color='0.72', lw=0.9)
     # coupling t = 2|h_l|; |h_l| = lambda/4 = 0.25 is the critical (flat-bottom) case
-    A_cases = [(0.13, '#9e4b4b', r'$|h_l| < \lambda/4$: trapped (II)'),
-               (0.50, '0.35',    r'$|h_l| = \lambda/4$ (critical)'),
-               (0.90, '#3f7d5f', r'$|h_l| > \lambda/4$: shared (III)')]
+    A_cases = [(0.13, '#9e4b4b', 'trapped (II)'),
+               (0.50, '0.35',    'critical'),
+               (0.90, '#3f7d5f', 'shared (III)')]
     for _t, _col, _lab in A_cases:
         EmA = meanX - np.sqrt(halfX ** 2 + _t ** 2)
-        axA.plot(Xg, EmA, '-', color=_col, lw=2.0, label=_lab)
+        axA.plot(Xg, EmA, '-', color=_col, lw=2.0)
         _mins = np.where((EmA[1:-1] < EmA[:-2]) & (EmA[1:-1] <= EmA[2:]))[0] + 1
         axA.plot(Xg[_mins], EmA[_mins], 'o', color=_col, ms=4, zorder=5)
     axA.axvline(0, color='0.9', lw=0.7, zorder=0)
+    # curve labels placed in analytically clear windows (no legend: the box
+    # cannot avoid the diabat/adiabat crossings; conditions are in the caption)
+    axA.text(-1.45, 0.18, 'trapped (II)', color='#9e4b4b', fontsize=7)
+    axA.text(0.35, -0.185, 'critical', color='0.35', fontsize=7)
+    axA.text(-0.55, -0.52, 'shared (III)', color='#3f7d5f', fontsize=7)
+    axA.text(0.35, 0.92, 'diabats', color='0.55', fontsize=7)
     axA.set_xlabel(r'distortion  $X = \eta/\lambda$')
-    axA.set_ylabel(r'energy  (units of $\lambda$)')
+    axA.set_ylabel(r'Energy  (units of $\lambda$)')
+    axA.set_title('Lower Adiabatic Surface', fontsize=9)
     axA.set_xlim(-1.7, 1.7); axA.set_ylim(-0.80, 1.20)
     axA.set_xticks([-1, 0, 1])
-    axA.legend(loc='upper center', fontsize=6.2, framealpha=0.9, handlelength=1.5,
-               borderpad=0.3, labelspacing=0.3)
-    axA.text(-0.17, 1.04, 'A', transform=axA.transAxes, fontsize=11, fontweight='bold', va='top')
+    axA.text(-0.17, 1.02, 'A', transform=axA.transAxes, fontsize=10, fontweight='bold', va='bottom')
 
     # --- Panel B: Robin-Day phase boundary |h_l|_crit(U) at fixed lambda = 1 ---
     eps = 0.01
@@ -590,20 +616,20 @@ def figure_6_disphenoid():
 
     hlc0 = lam_frame / 4   # U = 0: |h_l|_crit = lambda/4 (exact)
     axB.plot([0.0], [hlc0], 'o', color='0.15', ms=4.5, zorder=5)
-    axB.annotate(r'$|h_l|_{\mathrm{crit}} = \lambda/4$', xy=(0.0, hlc0), xytext=(0.9, 0.256),
-                 fontsize=8, color='0.15', ha='left', va='center',
-                 arrowprops=dict(arrowstyle='->', color='0.4', lw=0.8))
+    axB.text(0.15, 0.253, r'$|h_l|_{\mathrm{crit}} = \lambda/4$',
+             fontsize=8, color='0.15', ha='left', va='bottom')
 
-    axB.text(0.42, 0.70, 'delocalized (Class III)\nlarge $|h_l|$ (short $R$)', fontsize=7,
+    axB.text(0.75, 0.42, 'delocalized (Class III)\nlarge $|h_l|$ (short $R$)', fontsize=7,
              color='#2f6f4f', ha='center', va='center', transform=axB.transAxes)
     axB.text(0.29, 0.16, 'localized (Class II)\nsmall $|h_l|$ (long $R$)', fontsize=7,
              color='#9e4b4b', ha='center', va='center', transform=axB.transAxes)
 
     axB.set_xlabel(r'on-site repulsion  $U / |h_s|$')
-    axB.set_ylabel(r'critical coupling  $|h_l|_{\mathrm{crit}} / |h_s|$')
+    axB.set_ylabel(r'Critical coupling  $|h_l|_{\mathrm{crit}} / |h_s|$')
+    axB.set_title('Robin–Day Phase Boundary', fontsize=9)
     axB.set_xlim(0.0, 6.0); axB.set_ylim(0.0, yhi)
     axB.grid(alpha=0.3)
-    axB.text(-0.17, 1.04, 'B', transform=axB.transAxes, fontsize=11, fontweight='bold', va='top')
+    axB.text(-0.17, 1.02, 'B', transform=axB.transAxes, fontsize=10, fontweight='bold', va='bottom')
 
     # 3D structure inset on panel B (depth-cued): disphenoid, bold short H2 edges (h_s),
     # four equivalent long inter-pair edges (h_l).
@@ -646,10 +672,10 @@ def figure_6_disphenoid():
     axin.set_xlim(-1, 1); axin.set_ylim(-1, 1); axin.set_zlim(-1, 1)
 
     fig.tight_layout()
-    plt.savefig(os.path.join(OUTDIR, 'fig6_disphenoid.pdf'))
-    plt.savefig(os.path.join(OUTDIR, 'fig6_disphenoid.png'), dpi=450)
+    plt.savefig(os.path.join(OUTDIR, 'fig3_disphenoid.pdf'))
+    plt.savefig(os.path.join(OUTDIR, 'fig3_disphenoid.png'), dpi=450)
     plt.close()
-    print('  fig6_disphenoid.pdf / .png')
+    print('  fig3_disphenoid.pdf / .png')
     plt.rcParams.update({'font.size': 11})
 
 
@@ -1319,5 +1345,5 @@ if __name__ == '__main__':
     figure_3_degeneracy()
     figure_4_pade()
     figure_5_aromaticity()
-    figure_6_disphenoid()
+    figure_3_disphenoid()
     print('done.')

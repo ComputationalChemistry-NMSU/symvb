@@ -348,7 +348,12 @@ def no_psi3(psi):
 bir_no = 0.5 * np.array([no_psi3(r['psi_fci']) for r in records])
 
 plt.rcParams.update({'font.size': 8})
-fig, ax = plt.subplots(1, 3, figsize=(7.0, 2.6), gridspec_kw={'wspace': 0.32})
+# constrained layout spaces panels by their actual label extents (panel B's
+# tick labels are wider than C's, so a fixed wspace looks uneven)
+fig, ax = plt.subplots(1, 3, figsize=(7.0, 2.6), layout='constrained')
+for a, letter in zip(ax, 'ABC'):
+    a.text(-0.30, 1.02, letter, transform=a.transAxes, fontsize=10,
+           fontweight='bold', va='bottom', ha='left')
 
 # Panel (a): VB weights
 ax[0].plot(U_grid, arr('w_ab'), 'C0-',  lw=1.8, label=r'$w_{ab}$ (Kekulé)')
@@ -360,7 +365,7 @@ for y in (0.125, 0.25, 0.375, 0.5):
 ax[0].set_xscale('log')
 ax[0].set_xlabel(r'$U / |h|$')
 ax[0].set_ylabel('Chirgwin–Coulson weight')
-ax[0].set_title('(A)  VB weights vs $U$')
+ax[0].set_title('VB Weights vs $U$', fontsize=9)
 ax[0].legend(fontsize=6.2, loc='upper right', labelspacing=0.25,
              handlelength=1.5, borderpad=0.3, framealpha=0.9)
 ax[0].set_ylim(0, 0.86); ax[0].grid(alpha=0.3)
@@ -379,13 +384,14 @@ ax[1].axhline(-np.sqrt(2), color='C3', lw=0.6, alpha=0.6)
 ax[1].axhline(-2 * np.sqrt(2), color='k', lw=0.6, alpha=0.6)
 ax[1].set_xscale('log')
 ax[1].set_xlabel(r'$U / |h|$')
-ax[1].set_ylabel(r'$E - U$  (units of $|h|$)')
-ax[1].set_title(r'(B)  $\Delta_{\rm lb} = -\sqrt{2}\,|h|$')
-ax[1].legend(fontsize=6.2, loc='center right',
+ax[1].set_ylabel(r'$(E - U)\,/\,|h|$')
+ax[1].set_title('Long-Bond Stabilization', fontsize=9)
+ax[1].legend(fontsize=6.2, loc='center', bbox_to_anchor=(0.55, 0.73),
              labelspacing=0.25, handlelength=1.5, borderpad=0.3,
              framealpha=0.9)
 ax[1].grid(alpha=0.3)
-ax[1].text(2e-2, -np.sqrt(2) + 0.16, r'$-\sqrt{2}$', color='C3', fontsize=8, va='bottom')
+ax[1].text(1.3e-2, -np.sqrt(2) + 0.09, r'$-\sqrt{2}$', color='C3',
+           fontsize=8, va='bottom')
 ax[1].text(2e-2, -2 * np.sqrt(2) + 0.16, r'$-2\sqrt{2}$', color='k',
            fontsize=8, va='bottom')
 
@@ -399,20 +405,19 @@ ax[2].axhline(3/8, color='C2', lw=0.6, alpha=0.6)
 ax[2].axhline(1/8, color='C7', lw=0.6, alpha=0.6)
 ax[2].set_xscale('log')
 ax[2].set_xlabel(r'$U / |h|$')
-ax[2].set_ylabel('biradical diagnostic')
-ax[2].set_title('(C)  VB vs NO: two biradical scales')
-ax[2].set_ylim(0, 0.62)
-ax[2].legend(fontsize=6.2, loc='upper left', bbox_to_anchor=(0.02, 0.575),
+ax[2].set_ylabel('Biradical diagnostic')
+ax[2].set_title('VB vs NO: Two Biradical Scales', fontsize=8.5)
+ax[2].set_ylim(0, 0.68)   # headroom: legend sits above the 1/2 guide strip
+ax[2].legend(fontsize=6.2, loc='upper left',
              labelspacing=0.25, handlelength=1.5, borderpad=0.3,
              framealpha=0.9)
 ax[2].grid(alpha=0.3)
-ax[2].text(2e3, 0.56, r'$1/2$', color='C3', fontsize=8, va='bottom')
+ax[2].text(2e3, 0.515, r'$1/2$', color='C3', fontsize=8, va='bottom')
 ax[2].text(2e3, 0.43, r'$3/8$', color='C2', fontsize=8, va='bottom')
 ax[2].text(2e3, 0.18, r'$1/8$', color='C7', fontsize=8, va='bottom')
 
-plt.tight_layout()
 outpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                      '..', '..', 'vbt-3', 'figures', 'fig5_allyl_long_bond.png')
+                      '..', '..', 'vbt-3', 'figures', 'fig2_allyl_long_bond.png')
 plt.savefig(outpath, dpi=450, bbox_inches='tight')
 plt.savefig(outpath.replace('.png', '.pdf'), bbox_inches='tight')
 plt.close()

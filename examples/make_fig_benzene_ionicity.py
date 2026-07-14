@@ -3,9 +3,9 @@
 Chirgwin-Coulson weights of the four ionicity classes n_d in {0,1,2,3} in
 the benzene FCI ground state versus U/|h| (log axis), at s = 0, h = -1.
 Validates against the closed-shell result (5, 31, 31, 5)/72 at U = 0
-(manuscript Eq. 12) before writing the figure.
+(manuscript eq 17) before writing the figure.
 
-Output: ../vbt-3/figures/fig_benzene_ionicity.{png,pdf}, drawn at ACS
+Output: ../vbt-3/figures/fig4_benzene_ionicity.{png,pdf}, drawn at ACS
 single-column width (3.33 in) with all text in 7-9 pt.
 
 Run from the repo root: PYTHONPATH=. python3 examples/make_fig_benzene_ionicity.py
@@ -78,9 +78,9 @@ ax.set_xlim(Us[0], Us[-1])
 ax.legend(frameon=False, loc='upper left', bbox_to_anchor=(0.0, 0.97))
 fig.tight_layout(pad=0.3)
 for ext in ('png', 'pdf'):
-    fig.savefig(os.path.join(OUT, f'fig_benzene_ionicity.{ext}'),
+    fig.savefig(os.path.join(OUT, f'fig4_benzene_ionicity.{ext}'),
                 dpi=600 if ext == 'png' else None)
-print('written:', os.path.join(OUT, 'fig_benzene_ionicity.png'))
+print('written:', os.path.join(OUT, 'fig4_benzene_ionicity.png'))
 # headline values for the caption/prose cross-check
 for u in (1.0, 2.0, 4.0, 8.0, 16.0):
     print(f'U/|h| = {u:>4}: ' + '  '.join(f'w{k}={v:.3f}'

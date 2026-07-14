@@ -52,7 +52,7 @@ for sv in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]:
         Sn = np.asarray(fS(H_VAL, sv, l * H_VAL), float)
         smin = min(smin, float(eigvalsh(Sn)[0]))
         E[i] = eigh(Hn, Sn, eigvals_only=True)[0]
-    im = int(np.argmax(E)); interior = 0 < im < len(lam) - 1 and E.ptp() > 1e-9
+    im = int(np.argmax(E)); interior = 0 < im < len(lam) - 1 and np.ptp(E) > 1e-9
     rise = E[im] - E[-1] if interior else 0.0
     print(f"{sv:>4.1f} | {smin:>8.2e} | "
           f"{(lam[im] if interior else float('nan')):>6.3f} | {rise:>16.4e} | {interior}")
