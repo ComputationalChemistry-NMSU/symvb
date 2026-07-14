@@ -14,6 +14,14 @@ purely numerical FCI.
 
 ## Install
 
+From [PyPI](https://pypi.org/project/symvb/):
+
+```bash
+pip install symvb
+```
+
+Or install the development version straight from GitHub:
+
 ```bash
 pip install git+https://github.com/ComputationalChemistry-NMSU/symvb.git
 ```
@@ -88,7 +96,7 @@ PYTHONPATH=. jupyter notebook notebooks/
 
 ## Examples
 
-`examples/` collects 80 stand-alone scripts, most of them cited from
+`examples/` collects 88 stand-alone scripts, most of them cited from
 the manuscript's source-data records. Worked examples cover H₂, H₂⁺,
 allyl (anion / cation / triplet), benzene, (H₂)ₙ⁺ chains for
 $n = 2, 3, 4$, cyclobutadiene dianion, cyclopentadienyl anion, F₂,
@@ -102,6 +110,12 @@ PYTHONPATH=. python3 examples/benzene_heisenberg_mapping.py
 A few scripts cache large symbolic matrices under `/tmp` on first run
 (subsequent runs are fast), and the plotting scripts write their PNGs
 into `figures/`.
+
+`examples/qualitative_vb/` is a textbook companion: eight all-assert
+scripts that prove the classic results of qualitative VB theory (the
+two-, one-, and three-electron bonds, the VB mixing rule, and Rumer
+resonance in allyl, butadiene, and benzene) as exact symbolic
+identities. See its [README](examples/qualitative_vb/README.md).
 
 ## Tests
 

@@ -24,7 +24,7 @@ manuscript's scope.
 `scipy`, and `matplotlib`.
 
 ```bash
-pip install git+https://github.com/ComputationalChemistry-NMSU/symvb.git
+pip install symvb
 pip install jupyter numpy scipy matplotlib
 ```
 
