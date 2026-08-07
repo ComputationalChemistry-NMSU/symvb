@@ -34,12 +34,28 @@ cd symvb
 PYTHONPATH=. python3 examples/h2_hubbard_bond.py
 ```
 
-Python ≥ 3.8 (tested on 3.8 and 3.11). The symbolic core needs only
-`sympy`; the numeric helpers (`ground_state(subs=...)`, the scan
-patterns) and most examples also use `numpy` and `scipy`. For the
-teaching notebooks add `jupyter` and `matplotlib`.
+## System requirements
+
+symvb is pure Python with no compiled extensions, so it runs on any
+platform with a standard Python installation (Linux, macOS, Windows).
+
+- Python ≥ 3.8 (tested on 3.8 and 3.11).
+- Required: `sympy>=1.13`, `numpy>=1.24`, `scipy>=1.10` (installed
+  automatically by `pip`).
+- Optional, for the teaching notebooks and figure scripts: `jupyter`,
+  `matplotlib`.
+
+No GPU, HPC, or proprietary software is needed. Everything runs
+single-core on a standard laptop; the largest worked example (benzene,
+400 determinants) builds its full symbolic Hamiltonian and overlap
+matrices in about 70 s within ~0.2 GB of memory.
 
 ## Quick start
+
+The smallest chemically meaningful example: the two-electron bond of
+H₂, described by a covalent (Heitler–London) and an ionic VB structure,
+with resonance integral `h`, orbital overlap `s`, and on-site repulsion
+`U` all kept symbolic.
 
 ```python
 from symvb import Molecule, FixedPsi, System
@@ -51,9 +67,36 @@ cov = FixedPsi('aB'); cov.add_str_det('bA', coef=1)   # Heitler-London singlet
 ion = FixedPsi('aA'); ion.add_str_det('bB', coef=1)   # symmetric ionic
 
 bond = System.from_structures(m, [cov, ion])
-E, c         = bond.ground_state()      # symbolic ground-state energy + vector
-w_cov, w_ion = bond.weights()           # Chirgwin-Coulson weights
+H, S = bond.hamiltonian()               # 2x2 symbolic matrices
+```
 
+The answers come back as formulas, not numbers:
+
+```python
+>>> H
+Matrix([[4*h*s, 4*h], [4*h, 2*U + 4*h*s]])
+>>> S
+Matrix([[2*s**2 + 2, 4*s], [4*s, 2*s**2 + 2]])
+
+>>> E, c = bond.ground_state()          # closed-form energy in (h, s, U)
+>>> sympy.simplify(E.subs(s, 0))        # orthogonal-AO (Hubbard) limit
+U/2 - sqrt(U**2 + 16*h**2)/2
+```
+
+Chirgwin–Coulson structure weights come back the same way, so limits
+and trends are exact. The covalent and ionic weights are exactly 1/2
+each at `U = 0` (at every overlap), and numerical substitution is a
+one-liner:
+
+```python
+>>> w_cov, w_ion = bond.weights()
+>>> [w.subs({h: -1, s: 0.25, U: 4}).evalf(3) for w in (w_cov, w_ion)]
+[0.810, 0.190]                          # a covalent-dominated bond at U = 4|h|
+```
+
+The same interface scales to the larger worked systems:
+
+```python
 benzene = System.ring(6)                # topology fills in every edge + on-site U
 H, S    = benzene.hamiltonian()         # 400x400 sympy matrices, 2e block folded in (~1 min build)
 ```
@@ -133,4 +176,6 @@ MIT.
 Research reported in this repository was supported by an
 Institutional Development Award (IDeA) from the National Institute
 of General Medical Sciences of the National Institutes of Health
-under grant number P20GM103451.
+under grant number P20GM103451 and by the Department of Energy
+Office of Science Basic Energy Sciences through award number
+DE-SC0023329.

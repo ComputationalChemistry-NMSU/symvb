@@ -690,11 +690,12 @@ def scheme_1_pipeline():
     ax.set_ylim(0, 100)
     ax.set_axis_off()
 
-    # Color palette
-    c_input = '#eef2f7'
-    c_core  = '#d8e3f0'
-    c_sym   = '#e8f0d8'
-    c_out   = '#f5e5d8'
+    # All boxes white: the row structure and layer labels carry the
+    # hierarchy; no colored fills (user preference, 2026-07-15)
+    c_input = 'white'
+    c_core  = 'white'
+    c_sym   = 'white'
+    c_out   = 'white'
     c_edge  = '#3b4a5a'
     c_label = '#6a7380'
 
@@ -717,8 +718,9 @@ def scheme_1_pipeline():
         ax.text(15, y, text, ha='right', va='center',
                 fontsize=11, color=c_label, style='italic')
 
-    # Row y-coordinates (top to bottom)
-    y5, y4, y3, y2, y1 = 88, 71, 50, 29, 10
+    # Row y-coordinates (top to bottom); the wide row3-row2 gap gives the
+    # floating "symbolic" node air on both sides
+    y5, y4, y3, y2, y1 = 89, 72, 52, 25, 7
     row_h = 10
 
     # --- Row 5: user inputs ---
@@ -744,11 +746,11 @@ def scheme_1_pipeline():
     layer_label(y3 + row_h / 2, 'symvb.molecule')
     box(20, y3, 30, row_h,
         r"$\mathtt{build\_matrix(P,\,op)}$" + "\n"
-        "1e matrix elements:  Eqs. (2)-(3)",
+        "1e matrix elements:  Eqs. (1)-(2)",
         c_core, fontsize=11)
     box(58, y3, 30, row_h,
         r"$\mathtt{o2\_matrix(P)}$" + "\n"
-        u"2e Löwdin cofactors:  Eq. (4)",
+        u"2e Löwdin cofactors:  Eq. (3)",
         c_core, fontsize=11)
 
     # --- Row 2: symmetry / spin projections ---
@@ -786,7 +788,8 @@ def scheme_1_pipeline():
                       facecolor='white', edgecolor=c_edge, linewidth=0.8))
     # both matrix builders feed the symbolic-(H, S, H2e) collection point,
     # which feeds the optional projections and, directly, the solve row
-    sym_top, sym_bot = 46.3, 41.7
+    sym_c = (y3 + y2 + row_h) / 2 - 0.5   # same center as the node text
+    sym_top, sym_bot = sym_c + 2.4, sym_c - 2.4
     arrow(35, y3, 50, sym_top)
     arrow(73, y3, 58, sym_top)
     arrow(50, sym_bot, 32, y2 + row_h)
@@ -796,9 +799,8 @@ def scheme_1_pipeline():
     arrow(30, y2, 40, y1 + row_h)
     arrow(78, y2, 68, y1 + row_h)
 
-    ax.set_title('Scheme 1.  symvb package architecture and data flow',
-                 fontsize=13, loc='left', pad=8)
-
+    # no baked-in "Scheme 1." title: the caption lives in the manuscript,
+    # and the docx would otherwise show it twice
     plt.tight_layout()
     plt.savefig(os.path.join(OUTDIR, 'scheme1_pipeline.pdf'))
     plt.savefig(os.path.join(OUTDIR, 'scheme1_pipeline.png'), dpi=450)
@@ -1229,105 +1231,85 @@ def scheme_3_rumer():
 # TOC graphic  (3.25" x 2"; ACS requirement)
 # =======================================================================
 def toc_graphic():
-    """Graphical abstract (ACS TOC): benzene -> symvb -> closed-form + curve.
-    Canvas is 3.25" x 1.75", split into three regions plus a title strip."""
-    import numpy as np
-    from matplotlib.patches import FancyArrowPatch
+    """Graphical abstract for IJQC (Wiley): square 5.5 x 5.0 cm TOC image.
+    Four bonding archetypes surrounding symvb (H2 the navy worked example, the
+    others in light grey), the model Hamiltonian it builds, and the integral
+    set, on a rounded white card with a soft shadow."""
+    import matplotlib.patheffects as pe
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    NAVY, DARK = '#1f4068', '#2a3644'
+    GREY, GREYLINE = '#c3cad3', '#d5dae1'
+    ATOM_R = 0.023
 
-    fig = plt.figure(figsize=(3.25, 1.75))
+    fig = plt.figure(figsize=(5.5 / 2.54, 5.0 / 2.54))   # 5.5 x 5.0 cm (Wiley TOC)
+    fig.patch.set_facecolor('white')
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_axis_off()
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.set_aspect('equal')
 
-    # 1) Title strip
-    fig.text(0.5, 0.93,
-             'Closed-form valence-bond structure weights',
-             ha='center', va='top',
-             fontsize=7.5, fontweight='bold', color='#2a3644')
+    # rounded card with a soft drop shadow (white canvas outside)
+    card = FancyBboxPatch((0.05, 0.055), 0.90, 0.90,
+                          boxstyle='round,pad=0,rounding_size=0.045',
+                          facecolor='white', edgecolor='#dce0e6', lw=1.1, zorder=-10)
+    card.set_path_effects([pe.withSimplePatchShadow(offset=(3.5, -3.5),
+                           shadow_rgbFace='#8a94a0', alpha=0.32)])
+    ax.add_patch(card)
 
-    # 2) Left axis: benzene ring
-    ax_L = fig.add_axes([0.00, 0.12, 0.30, 0.72])
-    ax_L.set_xlim(-1.6, 1.6)
-    ax_L.set_ylim(-1.6, 1.6)
-    ax_L.set_aspect('equal')
-    ax_L.set_axis_off()
-    R = 1.1
-    hex_xy = [(R * np.cos(np.pi / 2 - k * np.pi / 3),
-               R * np.sin(np.pi / 2 - k * np.pi / 3)) for k in range(6)]
-    for k in range(6):
-        x1, y1 = hex_xy[k]
-        x2, y2 = hex_xy[(k + 1) % 6]
-        ax_L.plot([x1, x2], [y1, y2], color='#1f4068', lw=1.1)
-    th = np.linspace(0, 2 * np.pi, 100)
-    ax_L.plot(0.62 * R * np.cos(th), 0.62 * R * np.sin(th),
-              color='#1f4068', lw=0.9)
-    for (x, y) in hex_xy:
-        ax_L.plot(x, y, 'o', markersize=4.5, markerfacecolor='white',
-                  markeredgecolor='#1f4068', markeredgewidth=0.8, zorder=3)
-    ax_L.text(0, -1.5, r'benzene $\pi$ (6e / 6o)',
-              ha='center', fontsize=6, color='#4a5668')
+    def draw_mol(atoms, bonds, color, bold=(), inner=None, draw_atoms=True):
+        for (i, j) in bonds:
+            lw = 1.9 if (i, j) in bold or (j, i) in bold else 1.2
+            ax.plot([atoms[i][0], atoms[j][0]], [atoms[i][1], atoms[j][1]],
+                    color=color, lw=lw, zorder=3)
+        if inner is not None:
+            cx, cy_, r = inner
+            th = np.linspace(0, 2 * np.pi, 60)
+            ax.plot(cx + r * np.cos(th), cy_ + r * np.sin(th), color=color, lw=1.0, zorder=3)
+        if draw_atoms:
+            for (x, y) in atoms:
+                ax.add_patch(plt.Circle((x, y), ATOM_R, facecolor='white',
+                             edgecolor=color, lw=1.0, zorder=4))
 
-    # 3) Middle axis: pipeline arrow with symvb label + symbolic H
-    ax_M = fig.add_axes([0.30, 0.12, 0.28, 0.72])
-    ax_M.set_xlim(0, 10)
-    ax_M.set_ylim(0, 10)
-    ax_M.set_axis_off()
-    ax_M.add_patch(FancyArrowPatch((0.5, 5), (9.5, 5),
-                   arrowstyle='-|>', mutation_scale=10, lw=1.2,
-                   color='#2a3644'))
-    ax_M.text(5, 7.2, r'symvb', fontsize=9, fontweight='bold',
-              color='#2a3644', ha='center')
-    ax_M.text(5, 6.0, '(SymPy)', fontsize=6,
-              style='italic', color='#6a7380', ha='center')
-    ax_M.text(5, 3.3,
-              r'$H(h,s,U)$',
-              fontsize=8.5, fontweight='bold', color='#1f4068',
-              ha='center')
-    ax_M.text(5, 2.1, r'$400\times 400$  symbolic',
-              fontsize=6, color='#4a5668', ha='center')
-    ax_M.text(5, 0.9, 'non-orthogonal VB',
-              fontsize=6, style='italic', color='#6a7380', ha='center')
+    # systems at the four corners (H2 navy/active; others light grey)
+    draw_mol([(0.23 - 0.050, 0.845), (0.23 + 0.050, 0.845)], [(0, 1)], NAVY)      # H2
+    draw_mol([(0.77 - 0.084, 0.845 - 0.026), (0.77, 0.845 + 0.038),
+              (0.77 + 0.084, 0.845 - 0.026)], [(0, 1), (1, 2)], GREY)             # allyl
+    sc = 0.077; dcx, dcy = 0.18, 0.63                                             # disphenoid
+    pts = [(0.382, 0.55), (-0.382, 0.62), (0.239, -0.53), (-0.239, -0.65)]
+    dp = [(dcx + sc * u, dcy + sc * v) for (u, v) in pts]
+    draw_mol(dp, [(0, 2), (0, 3), (1, 2), (1, 3), (0, 1), (2, 3)], GREY, bold=[(0, 1), (2, 3)])
+    ax.text(dcx + 0.050, dcy + 0.058, r'$\bullet\!+$', fontsize=7.5, color=GREY, ha='left', va='bottom')
+    R = 0.080; bcx, bcy = 0.82, 0.63                                              # benzene
+    bz = [(bcx + R * np.cos(np.pi / 2 - k * np.pi / 3),
+           bcy + R * np.sin(np.pi / 2 - k * np.pi / 3)) for k in range(6)]
+    draw_mol(bz, [(k, (k + 1) % 6) for k in range(6)], GREY, inner=(bcx, bcy, 0.52 * R), draw_atoms=False)
 
-    # 4) Right region: headline (figure coords, clear of the canvas edge)
-    fig.text(0.63, 0.815,
-             r'$(w_0, w_1, w_2, w_3) = (5, 31, 31, 5)/72$ at $U=0$',
-             ha='center', fontsize=6.4, color='#1f4068')
-    fig.text(0.63, 0.725, r'ionic at $U=0$, covalent at strong coupling',
-             ha='center', fontsize=6.0, color='#6a7380')
+    # symvb tool box (centred among the systems, padded)
+    ax.add_patch(FancyBboxPatch((0.35, 0.652), 0.30, 0.10,
+                 boxstyle='round,pad=0.010,rounding_size=0.022',
+                 facecolor='white', edgecolor='#9aa3ad', lw=1.0, zorder=3))
+    ax.text(0.5, 0.702, 'symvb', ha='center', va='center', fontsize=11,
+            fontweight='bold', color=DARK, zorder=4)
 
-    # Mini plot: covalent vs ionic Chirgwin-Coulson weight crossover
-    # (same data pipeline as examples/make_fig_benzene_ionicity.py)
-    import pickle
-    from symvb.fixed_psi import generate_dets as _gdets
-    with open('/tmp/benzene_hubbard_matrices.pkl', 'rb') as fh:
-        _H1, _S2, _H2 = pickle.load(fh)
-    _h, _s, _U = sp.symbols('h s U')
-    _H0 = np.array(_H1.subs({_h: -1, _s: 0}).tolist(), dtype=float)
-    _MU = np.array(sp.diff(_H2, _U).subs({_s: 0}).tolist(), dtype=float)
-    _dets = [p.dets[0].det_string for p in _gdets(3, 3, 6)]
-    _cls = np.array([sum(1 for c in set(d) if c.islower() and c.upper() in d)
-                     for d in _dets])
-    _Us = np.logspace(-1, 2, 31)
-    _w0 = []
-    for _u in _Us:
-        _Hn = _H0 + _u * _MU
-        _Hn = (_Hn + _Hn.T) / 2
-        _c0 = np.linalg.eigh(_Hn)[1][:, 0]
-        _w0.append(float(np.sum(_c0[_cls == 0] ** 2)))
-    _w0 = np.array(_w0)
-    ax_in = fig.add_axes([0.66, 0.18, 0.30, 0.42])
-    ax_in.semilogx(_Us, _w0, color='#1f4068', lw=1.2)
-    ax_in.semilogx(_Us, 1 - _w0, color='#7a2828', lw=1.2, ls='--')
-    ax_in.axhline(0.5, color='0.75', lw=0.5, ls=':')
-    ax_in.text(0.15, 0.10, 'covalent', fontsize=6.0, color='#1f4068')
-    ax_in.text(0.15, 0.82, 'ionic', fontsize=6.0, color='#7a2828')
-    ax_in.text(28, 0.62, r'$s = 0$', fontsize=5.5, color='#6a7380')
-    ax_in.set_ylim(0, 1.0)
-    ax_in.set_xlabel(r'$U/|h|$', fontsize=6.0, labelpad=0)
-    ax_in.set_ylabel('weight', fontsize=6.0, labelpad=1)
-    ax_in.tick_params(axis='both', labelsize=5.5, length=2, pad=1)
-    for _spine in ax_in.spines.values():
-        _spine.set_linewidth(0.5)
+    # symvb -> model Hamiltonian
+    ax.add_patch(FancyArrowPatch((0.5, 0.645), (0.5, 0.445), arrowstyle='-|>',
+                 mutation_scale=10, lw=1.4, color=NAVY, zorder=2))
+    cy = 0.348
+    ax.text(0.155, cy, r'$\mathbf{H}=$', ha='center', va='center', fontsize=10.5, color=NAVY)
+    bl, br = 0.275, 0.845
+    for bx, tk in ((bl, 0.016), (br, -0.016)):
+        ax.plot([bx, bx], [cy - 0.056, cy + 0.056], color=NAVY, lw=1.1)
+        ax.plot([bx, bx + tk], [cy + 0.056, cy + 0.056], color=NAVY, lw=1.1)
+        ax.plot([bx, bx + tk], [cy - 0.056, cy - 0.056], color=NAVY, lw=1.1)
+    ax.text(0.42, cy + 0.028, r'$2hs$', ha='center', va='center', fontsize=9.5, color=NAVY)
+    ax.text(0.68, cy + 0.028, r'$2h$', ha='center', va='center', fontsize=9.5, color=NAVY)
+    ax.text(0.42, cy - 0.032, r'$2h$', ha='center', va='center', fontsize=9.5, color=NAVY)
+    ax.text(0.68, cy - 0.032, r'$U\!+\!2hs$', ha='center', va='center', fontsize=9.5, color=NAVY)
 
-    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.pdf'))
-    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.png'), dpi=300)
+    # integral set
+    ax.plot([0.315, 0.685], [0.228, 0.228], color=GREYLINE, lw=0.8)
+    ax.text(0.5, 0.142, r'$h,\ s,\ U,\ J,\ K,\ M$', ha='center', fontsize=9, color=NAVY)
+
+    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.pdf'), facecolor='white')
+    plt.savefig(os.path.join(OUTDIR, 'toc_graphic.png'), dpi=600, facecolor='white')
     plt.close()
     print('  toc_graphic.pdf / .png')
 
