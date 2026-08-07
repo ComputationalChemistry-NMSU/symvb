@@ -1,0 +1,28 @@
+h2 sto-6g nonorthogonal CI over pure AOs (3 structures)
+$ctrl
+nstr=3
+orbtyp=hao frgtyp=atom guess=read
+iscf=5 nao=2 nae=2
+iprint=3 itmax=200
+epg=7
+$end
+$str
+1 2
+1 1
+2 2
+$end
+$frag
+1 1
+1
+2
+$end
+$orb
+1*2
+1
+2
+$end
+$gus
+1 1
+1.0 1
+1.0 2
+$end
