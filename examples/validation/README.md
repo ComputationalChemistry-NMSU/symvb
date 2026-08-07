@@ -34,6 +34,11 @@ Each case directory contains:
 - stage2_symvb_vs_xmvb.py : builds the symbolic matrices, substitutes
   the integrals, solves the generalized eigenvalue problem, and asserts
   agreement of energies and weights with job.xmo and the FCI reference.
+- stage3_closed_form.py (2c2e cases) : solves the 2x2 secular equation
+  in closed form with all seven integrals symbolic, then substitutes the
+  integral values into the closed-form energy and weight expressions and
+  asserts the same agreement - validating the symbolic solution path,
+  not only the matrix construction.
 
 To rerun stage 2 only (no XMVB or PySCF needed), from a case directory:
 
